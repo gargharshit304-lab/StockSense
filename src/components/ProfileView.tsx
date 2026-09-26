@@ -1,13 +1,19 @@
 import React from 'react';
-import { UserRole } from '../types';
+import { UserRole, AuthUser } from '../types';
 
 interface ProfileViewProps {
   userRole: UserRole;
+  user?: AuthUser | null;
   onLogoutClick: () => void;
 }
 
-export const ProfileView: React.FC<ProfileViewProps> = ({ userRole, onLogoutClick }) => {
+export const ProfileView: React.FC<ProfileViewProps> = ({ userRole, user, onLogoutClick }) => {
   const isStaff = userRole === 'warehouse_staff';
+  const name = user?.name || (isStaff ? 'Warehouse Staff' : 'Alex Morgan');
+  const email = user?.email || (isStaff ? 'staff@stocksense.demo' : 'manager@stocksense.demo');
+  const initials = user?.name
+    ? user.name.trim().split(/\s+/).map(p => p[0]).join('').slice(0, 2).toUpperCase()
+    : (isStaff ? 'WS' : 'AM');
 
   return (
     <section className="page-view active">
@@ -20,17 +26,17 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ userRole, onLogoutClic
 
       <div className="profile-card">
         <div className="profile-avatar-large">
-          {isStaff ? 'WS' : 'AM'}
+          {initials}
         </div>
 
         <div className="profile-field-row">
           <span className="profile-field-label">Full Name:</span>
-          <span className="profile-field-value">{isStaff ? 'Warehouse Staff' : 'Alex Morgan'}</span>
+          <span className="profile-field-value">{name}</span>
         </div>
 
         <div className="profile-field-row">
           <span className="profile-field-label">Email:</span>
-          <span className="profile-field-value">{isStaff ? 'staff@stocksense.internal' : 'manager@stocksense.internal'}</span>
+          <span className="profile-field-value">{email}</span>
         </div>
 
         <div className="profile-field-row">
