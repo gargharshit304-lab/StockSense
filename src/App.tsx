@@ -9,7 +9,9 @@ import {
   MoveHistoryItem, 
   WarehouseLocation, 
   FilterState, 
-  ToastNotification 
+  ToastNotification,
+  UserRole,
+  StaffNotification
 } from './types';
 import { 
   INITIAL_LOCATIONS, 
@@ -24,6 +26,7 @@ import {
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { DashboardView } from './components/DashboardView';
+import { StaffDashboardView } from './components/StaffDashboardView';
 import { ProductsView } from './components/ProductsView';
 import { ReceiptsView } from './components/ReceiptsView';
 import { DeliveryOrdersView } from './components/DeliveryOrdersView';
@@ -42,6 +45,87 @@ import {
 import { Toast } from './components/Toast';
 
 const STORAGE_KEY = 'stocksense_ts_state_v1';
+
+const getRouteForTab = (tab: TabType, role: UserRole): string => {
+  if (role === 'warehouse_staff') {
+    switch (tab) {
+      case 'dashboard':
+        return '/staff/dashboard';
+      case 'staff-transfers':
+        return '/staff/transfers';
+      case 'staff-delivery-picking':
+        return '/staff/delivery-picking';
+      case 'staff-stock-counting':
+        return '/staff/stock-counting';
+      case 'profile':
+        return '/profile';
+      default:
+        return '/staff/dashboard';
+    }
+  } else {
+    switch (tab) {
+      case 'dashboard':
+        return '/dashboard';
+      case 'products':
+        return '/products';
+      case 'receipts':
+        return '/receipts';
+      case 'delivery-orders':
+        return '/delivery-orders';
+      case 'inventory-adjustment':
+        return '/inventory-adjustment';
+      case 'move-history':
+        return '/move-history';
+      case 'warehouse':
+        return '/warehouse';
+      case 'profile':
+        return '/profile';
+      default:
+        return '/dashboard';
+    }
+  }
+};
+
+const parseRoute = (path: string): { tab: TabType; role?: UserRole } | null => {
+  const clean = path.toLowerCase().replace(/\/$/, '') || '/';
+  if (clean === '/staff/dashboard') {
+    return { tab: 'dashboard', role: 'warehouse_staff' };
+  }
+  if (clean === '/staff/transfers') {
+    return { tab: 'staff-transfers', role: 'warehouse_staff' };
+  }
+  if (clean === '/staff/delivery-picking') {
+    return { tab: 'staff-delivery-picking', role: 'warehouse_staff' };
+  }
+  if (clean === '/staff/stock-counting') {
+    return { tab: 'staff-stock-counting', role: 'warehouse_staff' };
+  }
+  if (clean === '/profile') {
+    return { tab: 'profile' };
+  }
+  if (clean === '/dashboard') {
+    return { tab: 'dashboard', role: 'manager' };
+  }
+  if (clean === '/products') {
+    return { tab: 'products', role: 'manager' };
+  }
+  if (clean === '/receipts') {
+    return { tab: 'receipts', role: 'manager' };
+  }
+  if (clean === '/delivery-orders') {
+    return { tab: 'delivery-orders', role: 'manager' };
+  }
+  if (clean === '/inventory-adjustment') {
+    return { tab: 'inventory-adjustment', role: 'manager' };
+  }
+  if (clean === '/move-history') {
+    return { tab: 'move-history', role: 'manager' };
+  }
+  if (clean === '/warehouse') {
+    return { tab: 'warehouse', role: 'manager' };
+  }
+  return null;
+};
 
 export const App: React.FC = () => {
   // Load State from localStorage or fallback
@@ -95,8 +179,28 @@ export const App: React.FC = () => {
 
   const [locations] = useState<WarehouseLocation[]>(INITIAL_LOCATIONS);
 
+  // Initial Route Resolution
+  const initialRouteInfo = typeof window !== 'undefined' ? parseRoute(window.location.pathname) : null;
+
+  // Active Role ('manager' | 'warehouse_staff')
+  const [userRole, setUserRole] = useState<UserRole>(initialRouteInfo?.role || 'warehouse_staff');
+
   // Active Tab
-  const [activeTab, setActiveTab] = useState<TabType>('dashboard');
+  const [activeTab, setActiveTab] = useState<TabType>(initialRouteInfo?.tab || 'dashboard');
+
+  // Staff Notifications
+  const [staffNotifications, setStaffNotifications] = useState<StaffNotification[]>([
+    {
+      id: 'notif-1',
+      title: 'New Internal Transfer',
+      product: 'Steel Rods',
+      quantity: '50 kg',
+      route: 'Main Warehouse → Production Rack',
+      transferId: 'INT-2026-001',
+      read: false,
+      timestamp: '10:00 AM'
+    }
+  ]);
 
   // Filters
   const [filters, setFilters] = useState<FilterState>({
@@ -137,6 +241,60 @@ export const App: React.FC = () => {
       console.error('Failed to save to localStorage', e);
     }
   }, [products, receipts, deliveries, transfers, adjustments, moveHistory]);
+
+  // Handle popstate (Browser back/forward buttons)
+  useEffect(() => {
+    const handlePopState = () => {
+      const match = parseRoute(window.location.pathname);
+      if (match) {
+        if (match.role) setUserRole(match.role);
+        setActiveTab(match.tab);
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  // Sync initial URL
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const current = window.location.pathname;
+      if (current === '/' || !parseRoute(current)) {
+        window.history.replaceState(null, '', getRouteForTab(activeTab, userRole));
+      }
+    }
+  }, []);
+
+  const handleNavigate = (tab: TabType) => {
+    setActiveTab(tab);
+    try {
+      const targetRoute = getRouteForTab(tab, userRole);
+      if (window.location.pathname !== targetRoute) {
+        window.history.pushState(null, '', targetRoute);
+      }
+    } catch {}
+  };
+
+  const handleRoleChange = (newRole: UserRole) => {
+    setUserRole(newRole);
+    let nextTab = activeTab;
+    if (newRole === 'warehouse_staff') {
+      if (['products', 'receipts', 'delivery-orders', 'inventory-adjustment', 'move-history', 'warehouse'].includes(activeTab)) {
+        nextTab = 'dashboard';
+      }
+    } else if (newRole === 'manager') {
+      if (['staff-transfers', 'staff-delivery-picking', 'staff-stock-counting'].includes(activeTab)) {
+        nextTab = 'dashboard';
+      }
+    }
+    setActiveTab(nextTab);
+    try {
+      const targetRoute = getRouteForTab(nextTab, newRole);
+      if (window.location.pathname !== targetRoute) {
+        window.history.pushState(null, '', targetRoute);
+      }
+    } catch {}
+  };
 
   const showToast = (message: string, type: 'info' | 'success' | 'danger' = 'info') => {
     const id = `${Date.now()}-${Math.random()}`;
@@ -297,6 +455,30 @@ export const App: React.FC = () => {
     setIsTransferStatusModalOpen(true);
   };
 
+  // Staff Accepts Transfer (Status becomes In Progress, Inventory UNCHANGED)
+  const handleStaffAcceptTransfer = (transferId: string) => {
+    const t = transfers.find(tr => tr.id === transferId);
+    if (!t) return;
+
+    const updated: InternalTransfer = {
+      ...t,
+      workflowStep: 'in_progress',
+      statusText: 'In Progress'
+    };
+
+    setTransfers(prev => prev.map(tr => tr.id === transferId ? updated : tr));
+    if (viewingTransfer && viewingTransfer.id === transferId) {
+      setViewingTransfer(updated);
+    }
+
+    // Mark notification as read
+    setStaffNotifications(prev =>
+      prev.map(n => n.transferId === transferId ? { ...n, read: true } : n)
+    );
+
+    showToast(`Transfer ${transferId} accepted! Status is now In Progress. Physically perform goods movement.`, 'info');
+  };
+
   // Warehouse Staff Confirmation (Inventory changes ONLY after staff confirms)
   const handleStaffConfirmTransfer = (transferId: string) => {
     const t = transfers.find(tr => tr.id === transferId);
@@ -333,6 +515,11 @@ export const App: React.FC = () => {
 
     setViewingTransfer(completedTransfer);
 
+    // Mark notification as read
+    setStaffNotifications(prev =>
+      prev.map(n => n.transferId === transferId ? { ...n, read: true } : n)
+    );
+
     // Record in Move History
     const newMove: MoveHistoryItem = {
       id: `MOV-${Date.now().toString().slice(-4)}`,
@@ -349,7 +536,7 @@ export const App: React.FC = () => {
     setMoveHistory(prev => [newMove, ...prev]);
 
     showToast(
-      `Warehouse Staff confirmed transfer ${t.id}! ${qty} ${prod.uom} of ${prod.name} moved from ${t.fromLocation} → ${t.toLocation}. Total stock remains ${prod.stock} ${prod.uom}.`,
+      `✓ Transfer Completed! ${qty} ${prod.uom} of ${prod.name} moved from ${t.fromLocation} → ${t.toLocation}. Total stock remains ${prod.stock} ${prod.uom}.`,
       'success'
     );
   };
@@ -535,7 +722,21 @@ export const App: React.FC = () => {
     };
 
     setTransfers(prev => [newTransfer, ...prev]);
-    showToast(`Internal transfer ${newTransfer.id} scheduled (${data.fromLocation} → ${data.toLocation}). Waiting for Warehouse Staff.`, 'success');
+
+    // Send notification to Warehouse Staff
+    const newNotif: StaffNotification = {
+      id: `notif-${Date.now()}`,
+      title: 'New Internal Transfer',
+      product: prod.name,
+      quantity: `${data.quantity} ${prod.uom}`,
+      route: `${data.fromLocation} → ${data.toLocation}`,
+      transferId: newTransfer.id,
+      read: false,
+      timestamp: 'Just now'
+    };
+    setStaffNotifications(prev => [newNotif, ...prev]);
+
+    showToast(`Internal transfer ${newTransfer.id} scheduled (${data.fromLocation} → ${data.toLocation}). Notification sent to Warehouse Staff.`, 'success');
   };
 
   // Hackathon Presentation Demo Steps (1 to 5)
@@ -546,9 +747,13 @@ export const App: React.FC = () => {
       return;
     }
 
+    if (userRole !== 'manager') {
+      setUserRole('manager');
+    }
+
     if (step === 1) {
       // Step 1: Receive goods -> Steel Rods +50 kg
-      setActiveTab('receipts');
+      handleNavigate('receipts');
       const pending = receipts.find(r => r.productName === 'Steel Rods' && r.status !== 'Done');
       if (pending) {
         handleValidateReceipt(pending.id);
@@ -569,7 +774,7 @@ export const App: React.FC = () => {
       showToast('Step 1 Complete: Received +50 kg Steel Rods! Stock increased.', 'success');
     } else if (step === 2) {
       // Step 2: Transfer goods between locations
-      setActiveTab('warehouse');
+      handleNavigate('warehouse');
       let t = transfers.find(tr => tr.productName === 'Steel Rods');
       if (!t) {
         t = {
@@ -590,7 +795,7 @@ export const App: React.FC = () => {
       showToast('Step 2: Transfer status viewed (Waiting for Warehouse Staff). Inventory remains unchanged until confirmed.', 'info');
     } else if (step === 3) {
       // Step 3: Deliver goods (-20 kg)
-      setActiveTab('delivery-orders');
+      handleNavigate('delivery-orders');
       let del = deliveries.find(d => d.productName === 'Steel Rods' && d.status !== 'Done');
       if (!del) {
         del = {
@@ -610,13 +815,13 @@ export const App: React.FC = () => {
       showToast('Step 3 Complete: Delivered 20 kg Steel Rods! Stock decreased.', 'success');
     } else if (step === 4) {
       // Step 4: Adjust damaged stock (-3 kg)
-      setActiveTab('inventory-adjustment');
+      handleNavigate('inventory-adjustment');
       const rackBal = steel.locationBalances['Production Rack'] || 30;
       handleApplyAdjustment(steel.id, 'Production Rack', Math.max(0, rackBal - 3));
       showToast('Step 4 Complete: Adjusted damaged stock (-3 kg). Logged in Move History!', 'success');
     } else if (step === 5) {
       // Step 5: Ledger verification
-      setActiveTab('move-history');
+      handleNavigate('move-history');
       showToast('Stock Ledger: All movements verified in chronological order!', 'info');
     }
   };
@@ -625,8 +830,9 @@ export const App: React.FC = () => {
     <div className="app-container">
       {/* Sidebar Navigation */}
       <Sidebar
+        userRole={userRole}
         activeTab={activeTab}
-        onNavigate={setActiveTab}
+        onNavigate={handleNavigate}
         onLogoutClick={() => setIsLogoutModalOpen(true)}
         onResetDemo={handleResetDemo}
       />
@@ -635,34 +841,58 @@ export const App: React.FC = () => {
       <div className="main-wrapper">
         <Header
           activeTab={activeTab}
-          onNavigate={setActiveTab}
+          userRole={userRole}
+          onRoleChange={handleRoleChange}
+          notifications={staffNotifications}
+          onNavigate={handleNavigate}
           onTriggerDemoStep={handleTriggerDemoStep}
-          onNotificationClick={() => showToast('3 inventory tasks require operational review', 'info')}
+          onViewTransfer={(transferId) => {
+            const t = transfers.find(x => x.id === transferId);
+            if (t) handleViewTransferStatus(t);
+          }}
         />
 
         <main className="content-viewport">
-          {activeTab === 'dashboard' && (
-            <DashboardView
-              products={products}
-              receipts={receipts}
-              deliveries={deliveries}
-              transfers={transfers}
-              adjustments={adjustments}
-              locations={locations}
-              filters={filters}
-              onFilterChange={(newFilters) => setFilters(prev => ({ ...prev, ...newFilters }))}
-              onResetFilters={() => setFilters({ documentType: 'all', status: 'all', location: 'all', category: 'all' })}
-            />
+          {(activeTab === 'dashboard' || 
+            activeTab === 'staff-transfers' || 
+            activeTab === 'staff-delivery-picking' || 
+            activeTab === 'staff-stock-counting') && (
+            userRole === 'manager' ? (
+              <DashboardView
+                products={products}
+                receipts={receipts}
+                deliveries={deliveries}
+                transfers={transfers}
+                adjustments={adjustments}
+                locations={locations}
+                filters={filters}
+                onFilterChange={(newFilters) => setFilters(prev => ({ ...prev, ...newFilters }))}
+                onResetFilters={() => setFilters({ documentType: 'all', status: 'all', location: 'all', category: 'all' })}
+              />
+            ) : (
+              <StaffDashboardView
+                activeTab={activeTab}
+                transfers={transfers}
+                deliveries={deliveries}
+                products={products}
+                locations={locations}
+                onAcceptTransfer={handleStaffAcceptTransfer}
+                onConfirmTransferCompleted={handleStaffConfirmTransfer}
+                onAdvanceDeliveryStep={handleAdvanceDeliveryStep}
+                onValidateDelivery={handleValidateDelivery}
+                onApplyAdjustment={handleApplyAdjustment}
+              />
+            )
           )}
 
-          {activeTab === 'products' && (
+          {userRole === 'manager' && activeTab === 'products' && (
             <ProductsView
               products={products}
               onOpenCreateProduct={() => setIsProductModalOpen(true)}
             />
           )}
 
-          {activeTab === 'receipts' && (
+          {userRole === 'manager' && activeTab === 'receipts' && (
             <ReceiptsView
               receipts={receipts}
               onOpenCreateReceipt={() => setIsReceiptModalOpen(true)}
@@ -670,7 +900,7 @@ export const App: React.FC = () => {
             />
           )}
 
-          {activeTab === 'delivery-orders' && (
+          {userRole === 'manager' && activeTab === 'delivery-orders' && (
             <DeliveryOrdersView
               deliveries={deliveries}
               onOpenCreateDelivery={() => setIsDeliveryModalOpen(true)}
@@ -679,7 +909,7 @@ export const App: React.FC = () => {
             />
           )}
 
-          {activeTab === 'inventory-adjustment' && (
+          {userRole === 'manager' && activeTab === 'inventory-adjustment' && (
             <InventoryAdjustmentView
               products={products}
               locations={locations}
@@ -688,11 +918,11 @@ export const App: React.FC = () => {
             />
           )}
 
-          {activeTab === 'move-history' && (
+          {userRole === 'manager' && activeTab === 'move-history' && (
             <MoveHistoryView moveHistory={moveHistory} />
           )}
 
-          {activeTab === 'warehouse' && (
+          {userRole === 'manager' && activeTab === 'warehouse' && (
             <WarehouseView
               locations={locations}
               products={products}
@@ -706,7 +936,7 @@ export const App: React.FC = () => {
           )}
 
           {activeTab === 'profile' && (
-            <ProfileView onLogoutClick={() => setIsLogoutModalOpen(true)} />
+            <ProfileView userRole={userRole} onLogoutClick={() => setIsLogoutModalOpen(true)} />
           )}
         </main>
       </div>

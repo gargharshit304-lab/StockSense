@@ -9,7 +9,10 @@ export type TabType =
   | 'inventory-adjustment' 
   | 'move-history' 
   | 'warehouse' 
-  | 'profile';
+  | 'profile'
+  | 'staff-transfers'
+  | 'staff-delivery-picking'
+  | 'staff-stock-counting';
 
 export interface Product {
   id: string;
@@ -108,3 +111,17 @@ export interface FilterState {
   location: string;
   category: string;
 }
+
+export type UserRole = 'manager' | 'warehouse_staff';
+
+export interface StaffNotification {
+  id: string;
+  title: string;
+  product: string;
+  quantity: string;
+  route: string;
+  transferId: string;
+  read: boolean;
+  timestamp: string;
+}
+
