@@ -1,23 +1,33 @@
 import React from 'react';
-import { TabType, UserRole } from '../types';
+import { TabType } from '../types';
+import { useAuth } from '../context/AuthContext';
 
 interface SidebarProps {
-  userRole: UserRole;
+  isOpen: boolean;
+  onClose: () => void;
   activeTab: TabType;
-  onNavigate: (tab: TabType) => void;
-  onLogoutClick: () => void;
-  onResetDemo: () => void;
+  onTabChange: (tab: TabType) => void;
+  userRole?: string;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
-  userRole,
+  isOpen,
+  onClose,
   activeTab,
-  onNavigate,
-  onLogoutClick,
-  onResetDemo
+  onTabChange,
+  userRole
 }) => {
+  const { user, logout } = useAuth();
+  const role = user?.role || userRole || 'WAREHOUSE_STAFF';
+  const isManager = role === 'ADMIN' || role === 'INVENTORY_MANAGER';
+
+  const handleLogout = () => {
+    logout();
+    onClose();
+  };
+
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
       {/* Brand Header */}
       <div className="sidebar-brand">
         <div className="brand-icon">
@@ -31,33 +41,33 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       <nav className="sidebar-nav">
-        {userRole === 'manager' ? (
+        {/* Dashboard */}
+        <button
+          type="button"
+          className={`nav-item ${activeTab === 'dashboard' ? 'active' : ''}`}
+          onClick={() => { onTabChange('dashboard'); onClose(); }}
+        >
+          <span className="nav-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="7" height="7"></rect>
+              <rect x="14" y="3" width="7" height="7"></rect>
+              <rect x="14" y="14" width="7" height="7"></rect>
+              <rect x="3" y="14" width="7" height="7"></rect>
+            </svg>
+          </span>
+          <span>Dashboard</span>
+        </button>
+
+        {isManager ? (
           /* ================================================================
              MANAGER SIDEBAR CONFIGURATION
              ================================================================ */
           <>
-            {/* Dashboard */}
-            <button
-              type="button"
-              className={`nav-item ${activeTab === 'dashboard' ? 'active' : ''}`}
-              onClick={() => onNavigate('dashboard')}
-            >
-              <span className="nav-icon">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="3" width="7" height="7"></rect>
-                  <rect x="14" y="3" width="7" height="7"></rect>
-                  <rect x="14" y="14" width="7" height="7"></rect>
-                  <rect x="3" y="14" width="7" height="7"></rect>
-                </svg>
-              </span>
-              <span>Dashboard</span>
-            </button>
-
             {/* Products */}
             <button
               type="button"
               className={`nav-item ${activeTab === 'products' ? 'active' : ''}`}
-              onClick={() => onNavigate('products')}
+              onClick={() => { onTabChange('products'); onClose(); }}
             >
               <span className="nav-icon">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -75,7 +85,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               type="button"
               className={`nav-item nav-sub-item ${activeTab === 'receipts' ? 'active' : ''}`}
-              onClick={() => onNavigate('receipts')}
+              onClick={() => { onTabChange('receipts'); onClose(); }}
             >
               <span className="nav-icon">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -90,7 +100,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               type="button"
               className={`nav-item nav-sub-item ${activeTab === 'delivery-orders' ? 'active' : ''}`}
-              onClick={() => onNavigate('delivery-orders')}
+              onClick={() => { onTabChange('delivery-orders'); onClose(); }}
             >
               <span className="nav-icon">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -106,7 +116,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               type="button"
               className={`nav-item nav-sub-item ${activeTab === 'inventory-adjustment' ? 'active' : ''}`}
-              onClick={() => onNavigate('inventory-adjustment')}
+              onClick={() => { onTabChange('inventory-adjustment'); onClose(); }}
             >
               <span className="nav-icon">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -120,7 +130,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               type="button"
               className={`nav-item nav-sub-item ${activeTab === 'move-history' ? 'active' : ''}`}
-              onClick={() => onNavigate('move-history')}
+              onClick={() => { onTabChange('move-history'); onClose(); }}
             >
               <span className="nav-icon">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -137,7 +147,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               type="button"
               className={`nav-item nav-sub-item ${activeTab === 'warehouse' ? 'active' : ''}`}
-              onClick={() => onNavigate('warehouse')}
+              onClick={() => { onTabChange('warehouse'); onClose(); }}
             >
               <span className="nav-icon">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -147,29 +157,75 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </span>
               <span>Warehouse</span>
             </button>
-          </>
-        ) : (
-          /* ================================================================
-             WAREHOUSE STAFF SIDEBAR CONFIGURATION (SHOW ONLY THESE ITEMS)
-             ================================================================ */
-          <>
-            {/* Dashboard */}
+
+            {/* Staff Operations (Manager only) */}
+            <div className="nav-section-title">Staff Operations</div>
+
             <button
               type="button"
-              className={`nav-item ${activeTab === 'dashboard' ? 'active' : ''}`}
-              onClick={() => onNavigate('dashboard')}
+              className={`nav-item nav-sub-item ${activeTab === 'staff-transfers' ? 'active' : ''}`}
+              onClick={() => { onTabChange('staff-transfers'); onClose(); }}
             >
               <span className="nav-icon">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="3" width="7" height="7"></rect>
-                  <rect x="14" y="3" width="7" height="7"></rect>
-                  <rect x="14" y="14" width="7" height="7"></rect>
-                  <rect x="3" y="14" width="7" height="7"></rect>
+                  <polyline points="17 1 21 5 17 9"></polyline>
+                  <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
+                  <polyline points="7 23 3 19 7 15"></polyline>
+                  <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
                 </svg>
               </span>
-              <span>Dashboard</span>
+              <span>Internal Transfers</span>
             </button>
 
+            <button
+              type="button"
+              className={`nav-item nav-sub-item ${activeTab === 'staff-delivery-picking' ? 'active' : ''}`}
+              onClick={() => { onTabChange('staff-delivery-picking'); onClose(); }}
+            >
+              <span className="nav-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="1" y="3" width="15" height="13"></rect>
+                  <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
+                  <circle cx="5.5" cy="18.5" r="2.5"></circle>
+                  <circle cx="18.5" cy="18.5" r="2.5"></circle>
+                </svg>
+              </span>
+              <span>Delivery / Picking</span>
+            </button>
+
+            <button
+              type="button"
+              className={`nav-item nav-sub-item ${activeTab === 'staff-stock-counting' ? 'active' : ''}`}
+              onClick={() => { onTabChange('staff-stock-counting'); onClose(); }}
+            >
+              <span className="nav-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                </svg>
+              </span>
+              <span>Stock Counting</span>
+            </button>
+
+            <button
+              type="button"
+              className={`nav-item nav-sub-item ${activeTab === 'staff-history' ? 'active' : ''}`}
+              onClick={() => { onTabChange('staff-history'); onClose(); }}
+            >
+              <span className="nav-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+              </span>
+              <span>Operation History</span>
+            </button>
+          </>
+        ) : (
+          /* ================================================================
+             WAREHOUSE STAFF SIDEBAR CONFIGURATION
+             ================================================================ */
+          <>
             {/* Operations Group */}
             <div className="nav-section-title">Operations</div>
 
@@ -177,7 +233,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               type="button"
               className={`nav-item nav-sub-item ${activeTab === 'staff-transfers' ? 'active' : ''}`}
-              onClick={() => onNavigate('staff-transfers')}
+              onClick={() => { onTabChange('staff-transfers'); onClose(); }}
             >
               <span className="nav-icon">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -194,7 +250,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               type="button"
               className={`nav-item nav-sub-item ${activeTab === 'staff-delivery-picking' ? 'active' : ''}`}
-              onClick={() => onNavigate('staff-delivery-picking')}
+              onClick={() => { onTabChange('staff-delivery-picking'); onClose(); }}
             >
               <span className="nav-icon">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -211,7 +267,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               type="button"
               className={`nav-item nav-sub-item ${activeTab === 'staff-stock-counting' ? 'active' : ''}`}
-              onClick={() => onNavigate('staff-stock-counting')}
+              onClick={() => { onTabChange('staff-stock-counting'); onClose(); }}
             >
               <span className="nav-icon">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -226,7 +282,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               type="button"
               className={`nav-item nav-sub-item ${activeTab === 'staff-history' ? 'active' : ''}`}
-              onClick={() => onNavigate('staff-history')}
+              onClick={() => { onTabChange('staff-history'); onClose(); }}
             >
               <span className="nav-icon">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -239,13 +295,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </>
         )}
 
-        {/* Profile Group (Common Section Structure) */}
+        {/* Profile Group */}
         <div className="nav-section-title">Profile</div>
 
         <button
           type="button"
           className={`nav-item nav-sub-item ${activeTab === 'profile' ? 'active' : ''}`}
-          onClick={() => onNavigate('profile')}
+          onClick={() => { onTabChange('profile'); onClose(); }}
         >
           <span className="nav-icon">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -258,8 +314,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         <button
           type="button"
-          className="nav-item nav-sub-item"
-          onClick={onLogoutClick}
+          className="nav-item nav-sub-item logout"
+          onClick={handleLogout}
         >
           <span className="nav-icon">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -279,21 +335,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <polygon points="5 3 19 12 5 21 5 3"></polygon>
             </svg>
-            {userRole === 'warehouse_staff' ? 'Staff Floor Flow' : 'Manager Demo Flow'}
+            {isManager ? 'Manager Demo Flow' : 'Staff Floor Flow'}
           </div>
           <div className="demo-flow-text">
-            {userRole === 'warehouse_staff' 
-              ? 'Receive Alert → Accept → Perform Transfer → Confirm' 
-              : 'Schedule → Alert Staff → Track Status → Verify'}
+            {isManager
+              ? 'Schedule → Alert Staff → Track Status → Verify'
+              : 'Receive Alert → Accept → Perform Transfer → Confirm'}
           </div>
-          <button
-            type="button"
-            className="btn btn-sm btn-secondary"
-            style={{ marginTop: 6, width: '100%', fontSize: 11 }}
-            onClick={onResetDemo}
-          >
-            Reset Demo State
-          </button>
         </div>
       </div>
     </aside>

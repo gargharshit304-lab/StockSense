@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import { AuthUser } from '../types';
 
 interface AuthViewProps {
@@ -11,9 +13,11 @@ interface AuthViewProps {
 export const AuthView: React.FC<AuthViewProps> = ({
   mode,
   onNavigate,
-  onLoginSuccess,
   onSignupSuccess
 }) => {
+  const { login, signup } = useAuth();
+  const navigate = useNavigate();
+
   // Login State
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
@@ -44,15 +48,15 @@ export const AuthView: React.FC<AuthViewProps> = ({
   const handleUseDemo = (role: 'manager' | 'staff') => {
     clearMessages();
     if (role === 'manager') {
-      setLoginEmail('manager@stocksense.demo');
-      setLoginPassword('manager123');
+      setLoginEmail('admin@stocksense.com');
+      setLoginPassword('password123');
     } else {
       setLoginEmail('staff@stocksense.demo');
       setLoginPassword('staff123');
     }
   };
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     clearMessages();
 
@@ -71,65 +75,19 @@ export const AuthView: React.FC<AuthViewProps> = ({
 
     setIsSubmitting(true);
 
-    // Simulate authentication check
-    setTimeout(() => {
-      const emailLower = loginEmail.trim().toLowerCase();
-
-      // 1. Check Demo Accounts
-      if (emailLower === 'manager@stocksense.demo' && loginPassword === 'manager123') {
-        const user: AuthUser = {
-          id: 'user-manager-1',
-          name: 'Alex Morgan',
-          email: 'manager@stocksense.demo',
-          role: 'manager'
-        };
-        setIsSubmitting(false);
-        onLoginSuccess(user);
-        return;
-      }
-
-      if (emailLower === 'staff@stocksense.demo' && loginPassword === 'staff123') {
-        const user: AuthUser = {
-          id: 'user-staff-1',
-          name: 'Warehouse Staff',
-          email: 'staff@stocksense.demo',
-          role: 'warehouse_staff'
-        };
-        setIsSubmitting(false);
-        onLoginSuccess(user);
-        return;
-      }
-
-      // 2. Check Custom Created Mock Accounts in localStorage
-      try {
-        const storedUsersRaw = localStorage.getItem('stocksense_mock_users');
-        if (storedUsersRaw) {
-          const storedUsers: Array<AuthUser & { password?: string }> = JSON.parse(storedUsersRaw);
-          const found = storedUsers.find(
-            u => u.email.toLowerCase() === emailLower && u.password === loginPassword
-          );
-          if (found) {
-            const user: AuthUser = {
-              id: found.id,
-              name: found.name,
-              email: found.email,
-              role: found.role
-            };
-            setIsSubmitting(false);
-            onLoginSuccess(user);
-            return;
-          }
-        }
-      } catch (err) {
-        console.error('Error verifying credentials:', err);
-      }
-
+    try {
+      const { otpToken } = await login(loginEmail.trim(), loginPassword);
+      // Navigate to OTP verification page with otpToken in state
+      navigate('/login/verify-otp', { state: { otpToken, email: loginEmail.trim() } });
+    } catch (err: unknown) {
+      const axiosError = err as { response?: { data?: { error?: string } } };
+      setErrorMessage(axiosError.response?.data?.error || 'Invalid email or password.');
+    } finally {
       setIsSubmitting(false);
-      setErrorMessage('Invalid email or password.');
-    }, 450);
+    }
   };
 
-  const handleSignupSubmit = (e: React.FormEvent) => {
+  const handleSignupSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     clearMessages();
 
@@ -144,8 +102,8 @@ export const AuthView: React.FC<AuthViewProps> = ({
     }
     if (!signupPassword) {
       errors.password = 'Please enter your password.';
-    } else if (signupPassword.length < 6) {
-      errors.password = 'Password must be at least 6 characters.';
+    } else if (signupPassword.length < 8) {
+      errors.password = 'Password must be at least 8 characters.';
     }
     if (!confirmPassword) {
       errors.confirmPassword = 'Please confirm your password.';
@@ -160,52 +118,22 @@ export const AuthView: React.FC<AuthViewProps> = ({
 
     setIsSubmitting(true);
 
-    setTimeout(() => {
-      const emailLower = signupEmail.trim().toLowerCase();
-
-      // Save to mock users list
-      try {
-        const existingUsersRaw = localStorage.getItem('stocksense_mock_users');
-        const existingUsers: Array<AuthUser & { password?: string }> = existingUsersRaw 
-          ? JSON.parse(existingUsersRaw) 
-          : [];
-
-        if (existingUsers.some(u => u.email.toLowerCase() === emailLower)) {
-          setIsSubmitting(false);
-          setErrorMessage('An account with this email already exists.');
-          return;
+    try {
+      await signup(signupEmail.trim(), signupPassword, fullName.trim(), 'INVENTORY_MANAGER');
+      setSuccessMessage('Account created successfully. Redirecting to email verification...');
+      
+      setTimeout(() => {
+        if (onSignupSuccess) {
+          onSignupSuccess();
         }
-
-        const newUser = {
-          id: `user-${Date.now()}`,
-          name: fullName.trim(),
-          email: signupEmail.trim(),
-          password: signupPassword,
-          role: 'warehouse_staff' as const // Public signups are strictly warehouse staff
-        };
-
-        existingUsers.push(newUser);
-        localStorage.setItem('stocksense_mock_users', JSON.stringify(existingUsers));
-
-        setIsSubmitting(false);
-        setSuccessMessage('Account created successfully. Redirecting to sign in...');
-        
-        // Populate login fields and redirect to login after short delay
-        setLoginEmail(signupEmail.trim());
-        setLoginPassword('');
-        setTimeout(() => {
-          if (onSignupSuccess) {
-            onSignupSuccess();
-          }
-          onNavigate('login');
-          setSuccessMessage('Account created successfully. Please sign in with your credentials.');
-        }, 800);
-
-      } catch (err) {
-        setIsSubmitting(false);
-        setErrorMessage('Failed to create account. Please try again.');
-      }
-    }, 500);
+        navigate('/verify-email', { state: { email: signupEmail.trim() } });
+      }, 800);
+    } catch (err: unknown) {
+      const axiosError = err as { response?: { data?: { error?: string } } };
+      setErrorMessage(axiosError.response?.data?.error || 'Failed to create account. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -245,11 +173,11 @@ export const AuthView: React.FC<AuthViewProps> = ({
               </div>
               <div className="auth-highlight-item">
                 <span className="auth-highlight-icon">✓</span>
-                <span>Role-tailored manager &amp; floor views</span>
+                <span>Role-tailored manager & floor views</span>
               </div>
               <div className="auth-highlight-item">
                 <span className="auth-highlight-icon">✓</span>
-                <span>Real-time stock ledger &amp; audit history</span>
+                <span>Real-time stock ledger & audit history</span>
               </div>
             </div>
           </div>
@@ -448,7 +376,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
                   <div className="auth-demo-item">
                     <div className="auth-demo-item-info">
                       <div className="auth-demo-role-pill manager">Manager</div>
-                      <div className="auth-demo-email">manager@stocksense.demo</div>
+                      <div className="auth-demo-email">admin@stocksense.com</div>
                     </div>
                     <button
                       type="button"

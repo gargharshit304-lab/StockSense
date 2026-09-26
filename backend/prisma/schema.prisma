@@ -91,6 +91,7 @@ model Location {
   warehouseId  String   @map("warehouse_id")
   name         String   @map("name")
   shortCode    String   @map("short_code")
+  isVirtual    Boolean  @default(false) @map("is_virtual")
 
   warehouse    Warehouse  @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
   stockQuants  StockQuant[]
@@ -251,4 +252,16 @@ model RefreshToken {
   @@index([userId], name: "refresh_token_user_id_idx")
   @@index([tokenHash], name: "refresh_token_token_hash_idx")
   @@map("refresh_tokens")
+}
+
+model ReferenceCounter {
+  id           String   @id @default(uuid()) @map("id")
+  warehouseId  String   @map("warehouse_id")
+  docType      DocType  @map("doc_type")
+  lastNumber   Int      @default(0) @map("last_number")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@unique([warehouseId, docType], name: "reference_counter_warehouse_doctype_unique")
+  @@map("reference_counters")
 }

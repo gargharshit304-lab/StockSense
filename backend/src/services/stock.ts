@@ -1,5 +1,50 @@
 import prisma from '../utils/prisma';
-import { Prisma } from '@prisma/client';
+import { Prisma, NotificationType, UserRole } from '@prisma/client';
+
+async function createLowStockNotificationsForLocation(
+  tx: Prisma.TransactionClient,
+  productId: string,
+  locationId: string
+): Promise<void> {
+  const quant = await tx.stockQuant.findUnique({
+    where: { stock_quant_product_location_unique: { productId, locationId } },
+    include: { product: { select: { name: true } } },
+  });
+
+  if (!quant) return;
+
+  const freeToUse = Number(quant.freeToUse);
+  const adminUsers = await tx.user.findMany({
+    where: { role: { in: [UserRole.ADMIN, UserRole.INVENTORY_MANAGER] } },
+    select: { id: true },
+  });
+
+  if (freeToUse <= 0) {
+    for (const user of adminUsers) {
+      await tx.notification.create({
+        data: {
+          userId: user.id,
+          notifType: NotificationType.OUT_OF_STOCK,
+          title: 'Out of Stock',
+          message: `Product ${quant.product.name} is out of stock at location.`,
+          productId,
+        },
+      });
+    }
+  } else if (freeToUse < 10) {
+    for (const user of adminUsers) {
+      await tx.notification.create({
+        data: {
+          userId: user.id,
+          notifType: NotificationType.LOW_STOCK,
+          title: 'Low Stock Alert',
+          message: `Product ${quant.product.name} is running low with only ${freeToUse} units remaining.`,
+          productId,
+        },
+      });
+    }
+  }
+}
 
 export const stockService = {
   async findAll(params: {
@@ -140,6 +185,9 @@ export const stockService = {
           note: `Manual stock override: ${delta > 0 ? '+' : ''}${delta.toFixed(2)}`,
         },
       });
+
+      // Check for low stock / out of stock after manual override
+      await createLowStockNotificationsForLocation(tx, productId, locationId);
 
       return updated;
     });

@@ -3,9 +3,10 @@ import { ToastNotification } from '../types';
 
 interface ToastProps {
   toasts: ToastNotification[];
+  onClose: (id: string) => void;
 }
 
-export const Toast: React.FC<ToastProps> = ({ toasts }) => {
+export const Toast: React.FC<ToastProps> = ({ toasts, onClose }) => {
   return (
     <div className="toast-container">
       {toasts.map(toast => {
@@ -37,9 +38,24 @@ export const Toast: React.FC<ToastProps> = ({ toasts }) => {
           <div key={toast.id} className={`toast toast-${toast.type}`}>
             {iconSvg}
             <div className="toast-message">{toast.message}</div>
+            <button
+              type="button"
+              className="toast-close"
+              onClick={() => onClose(toast.id)}
+              aria-label="Close"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
           </div>
         );
       })}
     </div>
   );
+};
+
+export const ToastContainer: React.FC<ToastProps> = ({ toasts, onClose }) => {
+  return <Toast toasts={toasts} onClose={onClose} />;
 };
