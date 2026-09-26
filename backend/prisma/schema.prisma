@@ -1,0 +1,254 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  INVENTORY_MANAGER
+  WAREHOUSE_STAFF
+}
+
+enum PartnerType {
+  VENDOR
+  CUSTOMER
+}
+
+enum DocType {
+  RECEIPT
+  DELIVERY
+  INTERNAL_TRANSFER
+  ADJUSTMENT
+}
+
+enum DocStatus {
+  DRAFT
+  WAITING
+  READY
+  DONE
+  CANCELED
+}
+
+enum MoveStatus {
+  DRAFT
+  WAITING
+  READY
+  DONE
+  CANCELED
+}
+
+enum NotificationType {
+  LOW_STOCK
+  OUT_OF_STOCK
+  PICKING_LATE
+  PICKING_READY
+  GENERAL
+}
+
+enum OtpPurpose {
+  PASSWORD_RESET
+  LOGIN_2FA
+  EMAIL_VERIFY
+}
+
+model User {
+  id                   String   @id @default(uuid()) @map("id")
+  email                String   @unique @map("email")
+  passwordHash         String   @map("password_hash")
+  fullName             String   @map("full_name")
+  role                 UserRole @map("role")
+  isTwoFactorEnabled   Boolean  @default(true) @map("is_two_factor_enabled")
+  isEmailVerified      Boolean  @default(false) @map("is_email_verified")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  stockPickings        StockPicking[]      @relation("UserStockPickings")
+  notifications        Notification[]      @relation("UserNotifications")
+  otpVerifications     OtpVerification[]   @relation("UserOtpVerifications")
+  refreshTokens        RefreshToken[]      @relation("UserRefreshTokens")
+
+  @@map("users")
+}
+
+model Warehouse {
+  id        String   @id @default(uuid()) @map("id")
+  name      String   @map("name")
+  shortCode String   @unique @map("short_code")
+  address   String   @map("address")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  locations Location[]
+
+  @@map("warehouses")
+}
+
+model Location {
+  id           String   @id @default(uuid()) @map("id")
+  warehouseId  String   @map("warehouse_id")
+  name         String   @map("name")
+  shortCode    String   @map("short_code")
+
+  warehouse    Warehouse  @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  stockQuants  StockQuant[]
+  srcMoves     StockMove[] @relation("SrcLocation")
+  destMoves    StockMove[] @relation("DestLocation")
+
+  @@unique([warehouseId, shortCode], name: "location_warehouse_short_code_unique")
+  @@map("locations")
+}
+
+model ProductCategory {
+  id   String   @id @default(uuid()) @map("id")
+  name String   @unique @map("name")
+
+  products Product[]
+
+  @@map("product_categories")
+}
+
+model Uom {
+  id      String   @id @default(uuid()) @map("id")
+  name    String   @unique @map("name")
+
+  products Product[]
+
+  @@map("uoms")
+}
+
+model Product {
+  id          String   @id @default(uuid()) @map("id")
+  sku         String   @unique @map("sku")
+  name        String   @map("name")
+  categoryId  String   @map("category_id")
+  uomId       String   @map("uom_id")
+  unitCost    Decimal  @db.Decimal(12, 2) @map("unit_cost")
+
+  category    ProductCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  uom         Uom             @relation(fields: [uomId], references: [id], onDelete: Restrict)
+  stockQuants StockQuant[]
+  stockMoves  StockMove[]
+  notifications Notification[]
+
+  @@map("products")
+}
+
+model Partner {
+  id           String      @id @default(uuid()) @map("id")
+  name         String      @map("name")
+  partnerType  PartnerType @map("partner_type")
+  contactInfo  String      @map("contact_info")
+
+  stockPickings StockPicking[]
+
+  @@map("partners")
+}
+
+model StockQuant {
+  id            String   @id @default(uuid()) @map("id")
+  productId     String   @map("product_id")
+  locationId    String   @map("location_id")
+  onHand        Decimal  @default(0) @db.Decimal(12, 2) @map("on_hand")
+  reservedQty   Decimal  @default(0) @db.Decimal(12, 2) @map("reserved_qty")
+  freeToUse     Decimal  @default(0) @db.Decimal(12, 2) @map("free_to_use")
+
+  product       Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+  location      Location @relation(fields: [locationId], references: [id], onDelete: Restrict)
+
+  @@unique([productId, locationId], name: "stock_quant_product_location_unique")
+  @@map("stock_quants")
+}
+
+model StockPicking {
+  id             String   @id @default(uuid()) @map("id")
+  reference      String   @unique @map("reference")
+  docType        DocType  @map("doc_type")
+  partnerId      String?  @map("partner_id")
+  responsibleId  String   @map("responsible_id")
+  scheduledDate  DateTime @map("scheduled_date")
+  docStatus      DocStatus @default(DRAFT) @map("doc_status")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  partner        Partner?      @relation(fields: [partnerId], references: [id], onDelete: SetNull)
+  responsible    User          @relation("UserStockPickings", fields: [responsibleId], references: [id], onDelete: Restrict)
+  stockMoves     StockMove[]
+  notifications  Notification[]
+
+  @@index([docType, docStatus], name: "stock_picking_doc_type_status_idx")
+  @@map("stock_pickings")
+}
+
+model StockMove {
+  id               String   @id @default(uuid()) @map("id")
+  pickingId        String   @map("picking_id")
+  productId        String   @map("product_id")
+  srcLocationId    String   @map("src_location_id")
+  destLocationId   String   @map("dest_location_id")
+  quantity         Decimal  @db.Decimal(12, 2) @map("quantity")
+  moveStatus       MoveStatus @default(DRAFT) @map("move_status")
+  doneAt           DateTime? @map("done_at")
+  note             String?  @map("note")
+
+  picking          StockPicking @relation(fields: [pickingId], references: [id], onDelete: Cascade)
+  product          Product      @relation(fields: [productId], references: [id], onDelete: Restrict)
+  srcLocation      Location     @relation("SrcLocation", fields: [srcLocationId], references: [id], onDelete: Restrict)
+  destLocation     Location     @relation("DestLocation", fields: [destLocationId], references: [id], onDelete: Restrict)
+
+  @@index([productId, destLocationId], name: "stock_move_product_dest_location_idx")
+  @@index([pickingId], name: "stock_move_picking_id_idx")
+  @@map("stock_moves")
+}
+
+model Notification {
+  id          String           @id @default(uuid()) @map("id")
+  userId      String           @map("user_id")
+  notifType   NotificationType @map("notif_type")
+  title       String           @map("title")
+  message     String           @map("message")
+  productId   String?          @map("product_id")
+  pickingId   String?          @map("picking_id")
+  isRead      Boolean          @default(false) @map("is_read")
+  createdAt   DateTime         @default(now()) @map("created_at")
+
+  user        User         @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+  product     Product?     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  picking     StockPicking? @relation(fields: [pickingId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead], name: "notification_user_is_read_idx")
+  @@map("notifications")
+}
+
+model OtpVerification {
+  id        String     @id @default(uuid()) @map("id")
+  userId    String     @map("user_id")
+  otpCode   String     @map("otp_code")
+  purpose   OtpPurpose @map("purpose")
+  expiresAt DateTime   @map("expires_at")
+  isUsed    Boolean    @default(false) @map("is_used")
+  createdAt DateTime   @default(now()) @map("created_at")
+
+  user      User @relation("UserOtpVerifications", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose, otpCode], name: "otp_verification_user_purpose_code_idx")
+  @@map("otp_verifications")
+}
+
+model RefreshToken {
+  id          String   @id @default(uuid()) @map("id")
+  userId      String   @map("user_id")
+  tokenHash   String   @map("token_hash")
+  expiresAt   DateTime @map("expires_at")
+  isRevoked   Boolean  @default(false) @map("is_revoked")
+  userAgent   String?  @map("user_agent")
+  ipAddress   String?  @map("ip_address")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user        User     @relation("UserRefreshTokens", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], name: "refresh_token_user_id_idx")
+  @@index([tokenHash], name: "refresh_token_token_hash_idx")
+  @@map("refresh_tokens")
+}
