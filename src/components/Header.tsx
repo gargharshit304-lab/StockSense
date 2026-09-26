@@ -25,7 +25,8 @@ const TITLE_MAP: Record<TabType, string> = {
   profile: 'My Profile',
   'staff-transfers': 'Internal Transfers',
   'staff-delivery-picking': 'Delivery / Picking',
-  'staff-stock-counting': 'Stock Counting'
+  'staff-stock-counting': 'Stock Counting',
+  'staff-history': 'Operation History'
 };
 
 export const Header: React.FC<HeaderProps> = ({

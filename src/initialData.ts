@@ -5,7 +5,8 @@ import {
   InternalTransfer, 
   InventoryAdjustment, 
   MoveHistoryItem, 
-  WarehouseLocation 
+  WarehouseLocation,
+  StaffOperationHistoryItem 
 } from './types';
 
 export const INITIAL_LOCATIONS: WarehouseLocation[] = [
@@ -223,3 +224,70 @@ export const INITIAL_MOVE_HISTORY: MoveHistoryItem[] = [
     timestamp: '2026-09-25 16:45'
   }
 ];
+
+export const formatStaffOperationDate = (date: Date = new Date()): string => {
+  const day = date.getDate();
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const month = months[date.getMonth()];
+  const year = date.getFullYear();
+  let hours = date.getHours();
+  const minutes = date.getMinutes().toString().padStart(2, '0');
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12;
+  hours = hours ? hours : 12;
+  return `${day} ${month} ${year}, ${hours}:${minutes} ${ampm}`;
+};
+
+export const INITIAL_STAFF_OPERATIONS: StaffOperationHistoryItem[] = [
+  {
+    id: 'op-init-1',
+    operationId: 'CNT-2024-001',
+    operationType: 'Stock Counting',
+    product: 'Steel Rods',
+    quantity: '-3 kg',
+    numericQty: -3,
+    uom: 'kg',
+    sourceLocation: 'Production Rack',
+    destinationLocation: 'Production Rack',
+    recordedStock: '30 kg',
+    physicalCount: '27 kg',
+    adjustmentQty: '-3 kg',
+    completedAt: '26 Sep 2026, 12:05 PM',
+    status: 'Completed',
+    performedBy: 'Warehouse Staff',
+    referenceId: 'CNT-2024-001'
+  },
+  {
+    id: 'op-init-2',
+    operationId: 'DO-2024-001',
+    operationType: 'Delivery / Picking',
+    product: 'Chairs',
+    quantity: '10 Units',
+    numericQty: 10,
+    uom: 'Units',
+    sourceLocation: 'Main Warehouse',
+    destinationLocation: 'Customer (Apex Fabrication)',
+    acceptedAt: '26 Sep 2026, 11:00 AM',
+    completedAt: '26 Sep 2026, 11:15 AM',
+    status: 'Completed',
+    performedBy: 'Warehouse Staff',
+    referenceId: 'DEL-2024-001'
+  },
+  {
+    id: 'op-init-3',
+    operationId: 'INT-2024-000',
+    operationType: 'Internal Transfer',
+    product: 'Ergonomic Office Chair',
+    quantity: '20 Units',
+    numericQty: 20,
+    uom: 'Units',
+    sourceLocation: 'Main Warehouse',
+    destinationLocation: 'Production Rack',
+    acceptedAt: '25 Sep 2026, 3:45 PM',
+    completedAt: '25 Sep 2026, 4:15 PM',
+    status: 'Completed',
+    performedBy: 'Warehouse Staff',
+    referenceId: 'INT-2024-000'
+  }
+];
+

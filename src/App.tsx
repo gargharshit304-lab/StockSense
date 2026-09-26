@@ -11,7 +11,8 @@ import {
   FilterState, 
   ToastNotification,
   UserRole,
-  StaffNotification
+  StaffNotification,
+  StaffOperationHistoryItem
 } from './types';
 import { 
   INITIAL_LOCATIONS, 
@@ -20,13 +21,16 @@ import {
   INITIAL_DELIVERIES, 
   INITIAL_TRANSFERS, 
   INITIAL_ADJUSTMENTS, 
-  INITIAL_MOVE_HISTORY 
+  INITIAL_MOVE_HISTORY,
+  INITIAL_STAFF_OPERATIONS,
+  formatStaffOperationDate
 } from './initialData';
 
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { DashboardView } from './components/DashboardView';
 import { StaffDashboardView } from './components/StaffDashboardView';
+import { StaffOperationHistoryView } from './components/StaffOperationHistoryView';
 import { ProductsView } from './components/ProductsView';
 import { ReceiptsView } from './components/ReceiptsView';
 import { DeliveryOrdersView } from './components/DeliveryOrdersView';
@@ -57,6 +61,8 @@ const getRouteForTab = (tab: TabType, role: UserRole): string => {
         return '/staff/delivery-picking';
       case 'staff-stock-counting':
         return '/staff/stock-counting';
+      case 'staff-history':
+        return '/staff/history';
       case 'profile':
         return '/profile';
       default:
@@ -99,6 +105,9 @@ const parseRoute = (path: string): { tab: TabType; role?: UserRole } | null => {
   }
   if (clean === '/staff/stock-counting') {
     return { tab: 'staff-stock-counting', role: 'warehouse_staff' };
+  }
+  if (clean === '/staff/history') {
+    return { tab: 'staff-history', role: 'warehouse_staff' };
   }
   if (clean === '/profile') {
     return { tab: 'profile' };
@@ -224,6 +233,20 @@ export const App: React.FC = () => {
     ];
   });
 
+  // Staff Operations History
+  const [staffOperations, setStaffOperations] = useState<StaffOperationHistoryItem[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.staffOperations && parsed.staffOperations.length > 0) {
+          return parsed.staffOperations;
+        }
+      }
+    } catch {}
+    return INITIAL_STAFF_OPERATIONS;
+  });
+
   // Filters
   const [filters, setFilters] = useState<FilterState>({
     documentType: 'all',
@@ -257,13 +280,14 @@ export const App: React.FC = () => {
           transfers,
           adjustments,
           moveHistory,
-          staffNotifications
+          staffNotifications,
+          staffOperations
         })
       );
     } catch (e) {
       console.error('Failed to save to localStorage', e);
     }
-  }, [products, receipts, deliveries, transfers, adjustments, moveHistory, staffNotifications]);
+  }, [products, receipts, deliveries, transfers, adjustments, moveHistory, staffNotifications, staffOperations]);
 
   // Handle popstate (Browser back/forward buttons)
   useEffect(() => {
@@ -306,7 +330,7 @@ export const App: React.FC = () => {
         nextTab = 'dashboard';
       }
     } else if (newRole === 'manager') {
-      if (['staff-transfers', 'staff-delivery-picking', 'staff-stock-counting'].includes(activeTab)) {
+      if (['staff-transfers', 'staff-delivery-picking', 'staff-stock-counting', 'staff-history'].includes(activeTab)) {
         nextTab = 'dashboard';
       }
     }
@@ -359,6 +383,7 @@ export const App: React.FC = () => {
         timestamp: 'Yesterday, 4:15 PM'
       }
     ]);
+    setStaffOperations(JSON.parse(JSON.stringify(INITIAL_STAFF_OPERATIONS)));
     setFilters({ documentType: 'all', status: 'all', location: 'all', category: 'all' });
     showToast('Demo data reset to initial stock state (Steel Rods: 100 kg, Chairs: 12 Units).', 'info');
   };
@@ -488,6 +513,27 @@ export const App: React.FC = () => {
     };
     setMoveHistory(prev => [newMove, ...prev]);
 
+    // Record in Warehouse Staff Operation History
+    const now = new Date();
+    const completedAtStr = formatStaffOperationDate(now);
+    const newStaffOp: StaffOperationHistoryItem = {
+      id: `OP-${d.id}-${Date.now().toString().slice(-4)}`,
+      operationId: d.id.replace('DEL-', 'DO-'),
+      operationType: 'Delivery / Picking',
+      product: prod.name,
+      quantity: `${deliverQty} ${prod.uom}`,
+      numericQty: deliverQty,
+      uom: prod.uom,
+      sourceLocation: loc,
+      destinationLocation: `Customer (${d.customer || 'Client'})`,
+      acceptedAt: '11:00 AM',
+      completedAt: completedAtStr,
+      status: 'Completed',
+      performedBy: 'Warehouse Staff',
+      referenceId: d.id
+    };
+    setStaffOperations(prev => [newStaffOp, ...prev]);
+
     showToast(
       `Delivery ${d.id} validated! ${prod.name}: ${previousStock} ${prod.uom} → ${updatedStock} ${prod.uom} (-${deliverQty} ${prod.uom})`,
       'success'
@@ -580,6 +626,27 @@ export const App: React.FC = () => {
       timestamp: new Date().toISOString().replace('T', ' ').slice(0, 16)
     };
     setMoveHistory(prev => [newMove, ...prev]);
+
+    // Record in Warehouse Staff Operation History
+    const now = new Date();
+    const completedAtStr = formatStaffOperationDate(now);
+    const newStaffOp: StaffOperationHistoryItem = {
+      id: `OP-${t.id}-${Date.now().toString().slice(-4)}`,
+      operationId: t.id,
+      operationType: 'Internal Transfer',
+      product: prod.name,
+      quantity: `${qty} ${prod.uom}`,
+      numericQty: qty,
+      uom: prod.uom,
+      sourceLocation: t.fromLocation,
+      destinationLocation: t.toLocation,
+      acceptedAt: '10:35 AM',
+      completedAt: completedAtStr,
+      status: 'Completed',
+      performedBy: 'Warehouse Staff',
+      referenceId: t.id
+    };
+    setStaffOperations(prev => [newStaffOp, ...prev]);
 
     showToast(
       `✓ Transfer Completed! ${qty} ${prod.uom} of ${prod.name} moved from ${t.fromLocation} → ${t.toLocation}. Total stock remains ${prod.stock} ${prod.uom}.`,
@@ -678,6 +745,29 @@ export const App: React.FC = () => {
       timestamp: new Date().toISOString().replace('T', ' ').slice(0, 16)
     };
     setMoveHistory(prev => [newMove, ...prev]);
+
+    // Record in Warehouse Staff Operation History
+    const now = new Date();
+    const completedAtStr = formatStaffOperationDate(now);
+    const newStaffOp: StaffOperationHistoryItem = {
+      id: `OP-${adjRecord.id}`,
+      operationId: `CNT-${Date.now().toString().slice(-4)}`,
+      operationType: 'Stock Counting',
+      product: prod.name,
+      quantity: `${sign} ${prod.uom}`,
+      numericQty: adjustmentQty,
+      uom: prod.uom,
+      sourceLocation: location,
+      destinationLocation: location,
+      recordedStock: `${recordedStock} ${prod.uom}`,
+      physicalCount: `${countedQty} ${prod.uom}`,
+      adjustmentQty: `${sign} ${prod.uom}`,
+      completedAt: completedAtStr,
+      status: 'Completed',
+      performedBy: 'Warehouse Staff',
+      referenceId: adjRecord.id
+    };
+    setStaffOperations(prev => [newStaffOp, ...prev]);
 
     showToast(
       `Inventory adjustment applied! ${prod.name} at ${location} adjusted to ${countedQty} ${prod.uom} (${sign} ${prod.uom})`,
@@ -1014,6 +1104,10 @@ export const App: React.FC = () => {
               }}
               onViewTransferStatus={handleViewTransferStatus}
             />
+          )}
+
+          {userRole === 'warehouse_staff' && activeTab === 'staff-history' && (
+            <StaffOperationHistoryView operations={staffOperations} />
           )}
 
           {activeTab === 'profile' && (

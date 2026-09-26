@@ -12,7 +12,8 @@ export type TabType =
   | 'profile'
   | 'staff-transfers'
   | 'staff-delivery-picking'
-  | 'staff-stock-counting';
+  | 'staff-stock-counting'
+  | 'staff-history';
 
 export interface Product {
   id: string;
@@ -125,4 +126,28 @@ export interface StaffNotification {
   timestamp: string;
   status?: 'Waiting' | 'In Progress' | 'Completed' | string;
 }
+
+export type StaffOperationType = 'Internal Transfer' | 'Delivery / Picking' | 'Stock Counting';
+
+export interface StaffOperationHistoryItem {
+  id: string;
+  operationId: string;
+  operationType: StaffOperationType;
+  product: string;
+  quantity: string;
+  numericQty?: number;
+  uom?: string;
+  sourceLocation: string; // "From"
+  destinationLocation: string; // "To"
+  acceptedAt?: string;
+  completedAt: string;
+  status: 'Completed';
+  performedBy: string; // "Warehouse Staff"
+  recordedStock?: string;
+  physicalCount?: string;
+  adjustmentQty?: string;
+  referenceId?: string;
+  notes?: string;
+}
+
 
