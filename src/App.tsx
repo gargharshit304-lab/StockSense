@@ -189,18 +189,40 @@ export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>(initialRouteInfo?.tab || 'dashboard');
 
   // Staff Notifications
-  const [staffNotifications, setStaffNotifications] = useState<StaffNotification[]>([
-    {
-      id: 'notif-1',
-      title: 'New Internal Transfer',
-      product: 'Steel Rods',
-      quantity: '50 kg',
-      route: 'Main Warehouse → Production Rack',
-      transferId: 'INT-2026-001',
-      read: false,
-      timestamp: '10:00 AM'
-    }
-  ]);
+  const [staffNotifications, setStaffNotifications] = useState<StaffNotification[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.staffNotifications && parsed.staffNotifications.length > 0) {
+          return parsed.staffNotifications;
+        }
+      }
+    } catch {}
+    return [
+      {
+        id: 'notif-1',
+        title: 'New Internal Transfer',
+        product: 'Steel Rods',
+        quantity: '50 kg',
+        route: 'Main Warehouse → Production Rack',
+        transferId: 'INT-2026-001',
+        read: false,
+        timestamp: '10:00 AM'
+      },
+      {
+        id: 'notif-history-1',
+        title: 'Internal Transfer',
+        product: 'Ergonomic Office Chair',
+        quantity: '20 Units',
+        route: 'Main Warehouse → Production Rack',
+        transferId: 'INT-2026-000',
+        read: true,
+        status: 'Completed',
+        timestamp: 'Yesterday, 4:15 PM'
+      }
+    ];
+  });
 
   // Filters
   const [filters, setFilters] = useState<FilterState>({
@@ -234,13 +256,14 @@ export const App: React.FC = () => {
           deliveries,
           transfers,
           adjustments,
-          moveHistory
+          moveHistory,
+          staffNotifications
         })
       );
     } catch (e) {
       console.error('Failed to save to localStorage', e);
     }
-  }, [products, receipts, deliveries, transfers, adjustments, moveHistory]);
+  }, [products, receipts, deliveries, transfers, adjustments, moveHistory, staffNotifications]);
 
   // Handle popstate (Browser back/forward buttons)
   useEffect(() => {
@@ -313,6 +336,29 @@ export const App: React.FC = () => {
     setTransfers(JSON.parse(JSON.stringify(INITIAL_TRANSFERS)));
     setAdjustments(JSON.parse(JSON.stringify(INITIAL_ADJUSTMENTS)));
     setMoveHistory(JSON.parse(JSON.stringify(INITIAL_MOVE_HISTORY)));
+    setStaffNotifications([
+      {
+        id: 'notif-1',
+        title: 'New Internal Transfer',
+        product: 'Steel Rods',
+        quantity: '50 kg',
+        route: 'Main Warehouse → Production Rack',
+        transferId: 'INT-2026-001',
+        read: false,
+        timestamp: '10:00 AM'
+      },
+      {
+        id: 'notif-history-1',
+        title: 'Internal Transfer',
+        product: 'Ergonomic Office Chair',
+        quantity: '20 Units',
+        route: 'Main Warehouse → Production Rack',
+        transferId: 'INT-2026-000',
+        read: true,
+        status: 'Completed',
+        timestamp: 'Yesterday, 4:15 PM'
+      }
+    ]);
     setFilters({ documentType: 'all', status: 'all', location: 'all', category: 'all' });
     showToast('Demo data reset to initial stock state (Steel Rods: 100 kg, Chairs: 12 Units).', 'info');
   };
@@ -471,9 +517,9 @@ export const App: React.FC = () => {
       setViewingTransfer(updated);
     }
 
-    // Mark notification as read
+    // Mark notification as read and set status
     setStaffNotifications(prev =>
-      prev.map(n => n.transferId === transferId ? { ...n, read: true } : n)
+      prev.map(n => n.transferId === transferId ? { ...n, read: true, status: 'In Progress' } : n)
     );
 
     showToast(`Transfer ${transferId} accepted! Status is now In Progress. Physically perform goods movement.`, 'info');
@@ -515,22 +561,22 @@ export const App: React.FC = () => {
 
     setViewingTransfer(completedTransfer);
 
-    // Mark notification as read
+    // Mark notification as read and set status
     setStaffNotifications(prev =>
-      prev.map(n => n.transferId === transferId ? { ...n, read: true } : n)
+      prev.map(n => n.transferId === transferId ? { ...n, read: true, status: 'Completed' } : n)
     );
 
     // Record in Move History
     const newMove: MoveHistoryItem = {
-      id: `MOV-${Date.now().toString().slice(-4)}`,
+      id: t.id,
       product: prod.name,
-      type: 'Internal',
+      type: 'Internal Transfer',
       from: t.fromLocation,
       to: t.toLocation,
       quantity: `${qty} ${prod.uom}`,
       numericQty: qty,
       uom: prod.uom,
-      status: 'Done',
+      status: 'Completed',
       timestamp: new Date().toISOString().replace('T', ' ').slice(0, 16)
     };
     setMoveHistory(prev => [newMove, ...prev]);
@@ -539,6 +585,41 @@ export const App: React.FC = () => {
       `✓ Transfer Completed! ${qty} ${prod.uom} of ${prod.name} moved from ${t.fromLocation} → ${t.toLocation}. Total stock remains ${prod.stock} ${prod.uom}.`,
       'success'
     );
+  };
+
+  // Notification Actions
+  const handleMarkNotificationAsRead = (notifId: string) => {
+    setStaffNotifications(prev =>
+      prev.map(n => n.id === notifId ? { ...n, read: true } : n)
+    );
+  };
+
+  const handleMarkAllNotificationsAsRead = () => {
+    setStaffNotifications(prev =>
+      prev.map(n => ({ ...n, read: true }))
+    );
+    showToast('All notifications marked as read.', 'info');
+  };
+
+  const handleNotificationViewTransfer = (transferId: string, notifId?: string) => {
+    // 1. Mark notification as read
+    if (notifId) {
+      setStaffNotifications(prev =>
+        prev.map(n => n.id === notifId ? { ...n, read: true } : n)
+      );
+    } else {
+      setStaffNotifications(prev =>
+        prev.map(n => n.transferId === transferId ? { ...n, read: true } : n)
+      );
+    }
+
+    // 2. Navigate or open status modal based on active role
+    if (userRole === 'warehouse_staff') {
+      handleNavigate('staff-transfers');
+    } else {
+      const t = transfers.find(x => x.id === transferId);
+      if (t) handleViewTransferStatus(t);
+    }
   };
 
   // 4. Inventory Adjustment Application
@@ -844,12 +925,12 @@ export const App: React.FC = () => {
           userRole={userRole}
           onRoleChange={handleRoleChange}
           notifications={staffNotifications}
+          transfers={transfers}
           onNavigate={handleNavigate}
           onTriggerDemoStep={handleTriggerDemoStep}
-          onViewTransfer={(transferId) => {
-            const t = transfers.find(x => x.id === transferId);
-            if (t) handleViewTransferStatus(t);
-          }}
+          onViewTransfer={handleNotificationViewTransfer}
+          onMarkNotificationAsRead={handleMarkNotificationAsRead}
+          onMarkAllAsRead={handleMarkAllNotificationsAsRead}
         />
 
         <main className="content-viewport">
@@ -982,7 +1063,6 @@ export const App: React.FC = () => {
           setIsTransferStatusModalOpen(false);
           setViewingTransfer(null);
         }}
-        onStaffConfirmCompletion={handleStaffConfirmTransfer}
       />
 
       <LogoutModal

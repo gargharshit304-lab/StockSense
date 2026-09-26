@@ -327,13 +327,21 @@ a {
 
 .notification-badge {
   position: absolute;
-  top: 6px;
-  right: 6px;
-  width: 8px;
-  height: 8px;
+  top: 2px;
+  right: 2px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
   background-color: var(--primary-purple);
-  border-radius: 50%;
-  border: 2px solid #FFFFFF;
+  color: #FFFFFF;
+  border-radius: 10px;
+  border: 1.5px solid #FFFFFF;
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
 }
 
 .profile-menu-btn {
@@ -1220,4 +1228,104 @@ a {
   .filters-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* ==========================================================================
+   Slide to Confirm Control (Accept Transfer Modal)
+   ========================================================================== */
+.slide-verification-section {
+  margin-top: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.slide-verification-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+.slide-confirm-track {
+  position: relative;
+  width: 100%;
+  height: 52px;
+  background-color: var(--bg-purple-light);
+  border: 1.5px solid var(--status-info-border);
+  border-radius: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  user-select: none;
+  touch-action: none;
+  box-shadow: inset 0 1px 2px rgba(109, 40, 217, 0.05);
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.slide-confirm-track.confirmed {
+  background-color: var(--status-success-bg);
+  border-color: var(--status-success-border);
+}
+
+.slide-confirm-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background-color: #EDE9FE;
+  border-radius: 26px;
+  pointer-events: none;
+}
+
+.slide-confirm-track.confirmed .slide-confirm-fill {
+  background-color: var(--status-success-bg);
+}
+
+.slide-confirm-text {
+  position: relative;
+  z-index: 1;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--primary-purple);
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  letter-spacing: 0.01em;
+  transition: opacity 0.15s ease, color 0.2s ease;
+}
+
+.slide-confirm-text.success {
+  color: var(--status-success-text);
+  font-weight: 700;
+}
+
+.slide-confirm-handle {
+  position: absolute;
+  top: 3px;
+  left: 4px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background-color: var(--primary-purple);
+  color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  z-index: 2;
+  box-shadow: 0 2px 6px rgba(109, 40, 217, 0.3);
+  touch-action: none;
+  user-select: none;
+}
+
+.slide-confirm-handle:active {
+  cursor: grabbing;
+}
+
+.slide-confirm-handle.confirmed {
+  background-color: var(--status-success-text);
+  box-shadow: 0 2px 6px rgba(22, 163, 74, 0.35);
+  cursor: default;
 }

@@ -558,14 +558,12 @@ interface TransferStatusModalProps {
   isOpen: boolean;
   transfer: InternalTransfer | null;
   onClose: () => void;
-  onStaffConfirmCompletion?: (transferId: string) => void;
 }
 
 export const TransferStatusModal: React.FC<TransferStatusModalProps> = ({
   isOpen,
   transfer,
-  onClose,
-  onStaffConfirmCompletion
+  onClose
 }) => {
   if (!isOpen || !transfer) return null;
 
@@ -712,19 +710,7 @@ export const TransferStatusModal: React.FC<TransferStatusModalProps> = ({
           </div>
         </div>
 
-        <div className="modal-footer" style={{ justifyContent: 'space-between' }}>
-          <div>
-            {!isCompleted && onStaffConfirmCompletion && (
-              <button
-                type="button"
-                className="btn btn-sm btn-outline-purple"
-                onClick={() => onStaffConfirmCompletion(transfer.id)}
-                title="Confirm execution as Warehouse Staff"
-              >
-                Confirm as Warehouse Staff
-              </button>
-            )}
-          </div>
+        <div className="modal-footer">
           <button type="button" className="btn btn-secondary" onClick={onClose}>
             Close
           </button>
@@ -733,3 +719,491 @@ export const TransferStatusModal: React.FC<TransferStatusModalProps> = ({
     </div>
   );
 };
+
+/* ==========================================================================
+   Accept Internal Transfer Modal (Warehouse Staff Slide-to-Confirm)
+   ========================================================================== */
+interface AcceptTransferModalProps {
+  isOpen: boolean;
+  transfer: InternalTransfer | null;
+  onClose: () => void;
+  onAccept: (transferId: string) => void;
+}
+
+export const AcceptTransferModal: React.FC<AcceptTransferModalProps> = ({
+  isOpen,
+  transfer,
+  onClose,
+  onAccept
+}) => {
+  const [isConfirmed, setIsConfirmed] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragX, setDragX] = useState(0);
+  const trackRef = React.useRef<HTMLDivElement>(null);
+  const startXRef = React.useRef(0);
+
+  // Reset state whenever modal is opened or transfer changes
+  useEffect(() => {
+    if (isOpen) {
+      setIsConfirmed(false);
+      setIsDragging(false);
+      setDragX(0);
+    }
+  }, [isOpen, transfer?.id]);
+
+  // Global pointerup listener for reliable release handling outside handle
+  useEffect(() => {
+    if (!isDragging) return;
+    const handleGlobalUp = () => {
+      if (!isConfirmed) {
+        setIsDragging(false);
+        setDragX(0);
+      }
+    };
+    window.addEventListener('pointerup', handleGlobalUp);
+    window.addEventListener('pointercancel', handleGlobalUp);
+    return () => {
+      window.removeEventListener('pointerup', handleGlobalUp);
+      window.removeEventListener('pointercancel', handleGlobalUp);
+    };
+  }, [isDragging, isConfirmed]);
+
+  if (!isOpen || !transfer) return null;
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (isConfirmed) return;
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {}
+    setIsDragging(true);
+    startXRef.current = e.clientX - dragX;
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDragging || isConfirmed) return;
+    if (!trackRef.current) return;
+    const trackWidth = trackRef.current.clientWidth;
+    const maxDrag = Math.max(1, trackWidth - 44 - 8); // 44px handle + 4px left + 4px right padding
+    const currentX = e.clientX - startXRef.current;
+    const clampedX = Math.max(0, Math.min(currentX, maxDrag));
+    setDragX(clampedX);
+
+    // Confirmation threshold: 90%
+    if (clampedX >= maxDrag * 0.90) {
+      setIsConfirmed(true);
+      setIsDragging(false);
+      setDragX(maxDrag);
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch {}
+
+      // Show brief success state, then close modal and trigger acceptance
+      setTimeout(() => {
+        onAccept(transfer.id);
+        onClose();
+      }, 700);
+    }
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDragging || isConfirmed) return;
+    setIsDragging(false);
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {}
+    // If not past threshold, snap back to initial position
+    setDragX(0);
+  };
+
+  const trackWidth = trackRef.current?.clientWidth || 380;
+  const maxDrag = Math.max(1, trackWidth - 44 - 8);
+  const dragRatio = Math.min(1, dragX / maxDrag);
+  const textOpacity = isConfirmed ? 1 : Math.max(0.15, 1 - dragRatio * 1.5);
+
+  return (
+    <div className="modal-backdrop active" onClick={isConfirmed ? undefined : onClose}>
+      <div className="modal-window" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 480 }}>
+        <div className="modal-header">
+          <div>
+            <h3 className="modal-title">Accept Internal Transfer</h3>
+            <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
+              Review the transfer details before accepting.
+            </p>
+          </div>
+          {!isConfirmed && (
+            <button type="button" className="modal-close-btn" onClick={onClose} aria-label="Close modal">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          )}
+        </div>
+
+        <div className="modal-body">
+          {/* Transfer Details Card */}
+          <div className="transfer-status-details" style={{ marginBottom: 16 }}>
+            <div className="transfer-detail-item">
+              <span className="transfer-detail-label">Transfer ID</span>
+              <span className="transfer-detail-val" style={{ color: 'var(--primary-purple)' }}>
+                {transfer.id}
+              </span>
+            </div>
+
+            <div className="transfer-detail-item">
+              <span className="transfer-detail-label">Product</span>
+              <span className="transfer-detail-val">{transfer.productName}</span>
+            </div>
+
+            <div className="transfer-detail-item">
+              <span className="transfer-detail-label">Quantity</span>
+              <span className="transfer-detail-val">{transfer.quantity} {transfer.uom}</span>
+            </div>
+
+            <div className="transfer-detail-item">
+              <span className="transfer-detail-label">Current Status</span>
+              <span className="transfer-detail-val">
+                <span className="badge badge-waiting">Waiting for Warehouse Staff</span>
+              </span>
+            </div>
+
+            <div className="transfer-detail-item">
+              <span className="transfer-detail-label">From</span>
+              <span className="transfer-detail-val">{transfer.fromLocation}</span>
+            </div>
+
+            <div className="transfer-detail-item">
+              <span className="transfer-detail-label">To</span>
+              <span className="transfer-detail-val">{transfer.toLocation}</span>
+            </div>
+          </div>
+
+          {/* Verification Section */}
+          <div className="slide-verification-section">
+            <span className="slide-verification-label">
+              Slide to confirm that you accept this transfer.
+            </span>
+
+            {/* Slide to Confirm Track */}
+            <div 
+              ref={trackRef} 
+              className={`slide-confirm-track ${isConfirmed ? 'confirmed' : ''}`}
+            >
+              {/* Progress Fill */}
+              <div 
+                className="slide-confirm-fill" 
+                style={{ 
+                  width: isConfirmed ? '100%' : `${dragX + 44 + 4}px`,
+                  transition: isDragging ? 'none' : 'width 0.25s cubic-bezier(0.2, 0, 0, 1)'
+                }}
+              />
+
+              {/* Centered Track Label */}
+              <div 
+                className={`slide-confirm-text ${isConfirmed ? 'success' : ''}`}
+                style={{ opacity: textOpacity }}
+              >
+                {isConfirmed ? (
+                  <>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    ✓ Transfer Accepted
+                  </>
+                ) : (
+                  <>
+                    Slide to accept transfer →
+                  </>
+                )}
+              </div>
+
+              {/* Draggable Circular Handle */}
+              <div
+                className={`slide-confirm-handle ${isConfirmed ? 'confirmed' : ''}`}
+                style={{
+                  transform: `translateX(${dragX}px)`,
+                  transition: isDragging ? 'none' : 'transform 0.25s cubic-bezier(0.2, 0, 0, 1)'
+                }}
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={handlePointerUp}
+                onPointerCancel={handlePointerUp}
+                role="slider"
+                aria-label="Slide to accept transfer"
+                aria-valuenow={Math.round(dragRatio * 100)}
+                aria-valuemin={0}
+                aria-valuemax={100}
+              >
+                {isConfirmed ? (
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                  </svg>
+                ) : (
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <polyline points="9 18 15 12 9 6"></polyline>
+                  </svg>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="modal-footer">
+          <button 
+            type="button" 
+            className="btn btn-secondary" 
+            onClick={onClose}
+            disabled={isConfirmed}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ==========================================================================
+   Confirm Internal Transfer Completion Modal (Warehouse Staff Slide-to-Confirm)
+   ========================================================================== */
+interface ConfirmTransferCompletionModalProps {
+  isOpen: boolean;
+  transfer: InternalTransfer | null;
+  onClose: () => void;
+  onConfirm: (transferId: string) => void;
+}
+
+export const ConfirmTransferCompletionModal: React.FC<ConfirmTransferCompletionModalProps> = ({
+  isOpen,
+  transfer,
+  onClose,
+  onConfirm
+}) => {
+  const [isConfirmed, setIsConfirmed] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragX, setDragX] = useState(0);
+  const trackRef = React.useRef<HTMLDivElement>(null);
+  const startXRef = React.useRef(0);
+
+  // Reset state whenever modal is opened or transfer changes
+  useEffect(() => {
+    if (isOpen) {
+      setIsConfirmed(false);
+      setIsDragging(false);
+      setDragX(0);
+    }
+  }, [isOpen, transfer?.id]);
+
+  // Global pointerup listener for reliable release handling outside handle
+  useEffect(() => {
+    if (!isDragging) return;
+    const handleGlobalUp = () => {
+      if (!isConfirmed) {
+        setIsDragging(false);
+        setDragX(0);
+      }
+    };
+    window.addEventListener('pointerup', handleGlobalUp);
+    window.addEventListener('pointercancel', handleGlobalUp);
+    return () => {
+      window.removeEventListener('pointerup', handleGlobalUp);
+      window.removeEventListener('pointercancel', handleGlobalUp);
+    };
+  }, [isDragging, isConfirmed]);
+
+  if (!isOpen || !transfer) return null;
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (isConfirmed) return;
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {}
+    setIsDragging(true);
+    startXRef.current = e.clientX - dragX;
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDragging || isConfirmed) return;
+    if (!trackRef.current) return;
+    const trackWidth = trackRef.current.clientWidth;
+    const maxDrag = Math.max(1, trackWidth - 44 - 8); // 44px handle + 4px left + 4px right padding
+    const currentX = e.clientX - startXRef.current;
+    const clampedX = Math.max(0, Math.min(currentX, maxDrag));
+    setDragX(clampedX);
+
+    // Confirmation threshold: 90%
+    if (clampedX >= maxDrag * 0.90) {
+      setIsConfirmed(true);
+      setIsDragging(false);
+      setDragX(maxDrag);
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch {}
+
+      // Show brief success state, then close modal and trigger completion
+      setTimeout(() => {
+        onConfirm(transfer.id);
+        onClose();
+      }, 700);
+    }
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDragging || isConfirmed) return;
+    setIsDragging(false);
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {}
+    // If not past threshold, snap back to initial position
+    setDragX(0);
+  };
+
+  const trackWidth = trackRef.current?.clientWidth || 380;
+  const maxDrag = Math.max(1, trackWidth - 44 - 8);
+  const dragRatio = Math.min(1, dragX / maxDrag);
+  const textOpacity = isConfirmed ? 1 : Math.max(0.15, 1 - dragRatio * 1.5);
+
+  return (
+    <div className="modal-backdrop active" onClick={isConfirmed ? undefined : onClose}>
+      <div className="modal-window" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 480 }}>
+        <div className="modal-header">
+          <div>
+            <h3 className="modal-title">Confirm Transfer Completion</h3>
+            <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
+              Verify the physical transfer has been completed.
+            </p>
+          </div>
+          {!isConfirmed && (
+            <button type="button" className="modal-close-btn" onClick={onClose} aria-label="Close modal">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          )}
+        </div>
+
+        <div className="modal-body">
+          {/* Transfer Details Card */}
+          <div className="transfer-status-details" style={{ marginBottom: 16 }}>
+            <div className="transfer-detail-item">
+              <span className="transfer-detail-label">Transfer ID</span>
+              <span className="transfer-detail-val" style={{ color: 'var(--primary-purple)' }}>
+                {transfer.id}
+              </span>
+            </div>
+
+            <div className="transfer-detail-item">
+              <span className="transfer-detail-label">Product</span>
+              <span className="transfer-detail-val">{transfer.productName}</span>
+            </div>
+
+            <div className="transfer-detail-item">
+              <span className="transfer-detail-label">Quantity</span>
+              <span className="transfer-detail-val">{transfer.quantity} {transfer.uom}</span>
+            </div>
+
+            <div className="transfer-detail-item">
+              <span className="transfer-detail-label">Current Status</span>
+              <span className="transfer-detail-val">
+                <span className="badge badge-ready">In Progress</span>
+              </span>
+            </div>
+
+            <div className="transfer-detail-item">
+              <span className="transfer-detail-label">From</span>
+              <span className="transfer-detail-val">{transfer.fromLocation}</span>
+            </div>
+
+            <div className="transfer-detail-item">
+              <span className="transfer-detail-label">To</span>
+              <span className="transfer-detail-val">{transfer.toLocation}</span>
+            </div>
+          </div>
+
+          {/* Verification Section */}
+          <div className="slide-verification-section">
+            <span className="slide-verification-label">
+              Slide to confirm transfer completion.
+            </span>
+
+            {/* Slide to Confirm Track */}
+            <div 
+              ref={trackRef} 
+              className={`slide-confirm-track ${isConfirmed ? 'confirmed' : ''}`}
+            >
+              {/* Progress Fill */}
+              <div 
+                className="slide-confirm-fill" 
+                style={{ 
+                  width: isConfirmed ? '100%' : `${dragX + 44 + 4}px`,
+                  transition: isDragging ? 'none' : 'width 0.25s cubic-bezier(0.2, 0, 0, 1)'
+                }}
+              />
+
+              {/* Centered Track Label */}
+              <div 
+                className={`slide-confirm-text ${isConfirmed ? 'success' : ''}`}
+                style={{ opacity: textOpacity }}
+              >
+                {isConfirmed ? (
+                  <>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    ✓ Transfer Completed
+                  </>
+                ) : (
+                  <>
+                    Slide to confirm completion →
+                  </>
+                )}
+              </div>
+
+              {/* Draggable Circular Handle */}
+              <div
+                className={`slide-confirm-handle ${isConfirmed ? 'confirmed' : ''}`}
+                style={{
+                  transform: `translateX(${dragX}px)`,
+                  transition: isDragging ? 'none' : 'transform 0.25s cubic-bezier(0.2, 0, 0, 1)'
+                }}
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={handlePointerUp}
+                onPointerCancel={handlePointerUp}
+                role="slider"
+                aria-label="Slide to confirm completion"
+                aria-valuenow={Math.round(dragRatio * 100)}
+                aria-valuemin={0}
+                aria-valuemax={100}
+              >
+                {isConfirmed ? (
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                  </svg>
+                ) : (
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <polyline points="9 18 15 12 9 6"></polyline>
+                  </svg>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="modal-footer">
+          <button 
+            type="button" 
+            className="btn btn-secondary" 
+            onClick={onClose}
+            disabled={isConfirmed}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+

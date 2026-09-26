@@ -21,13 +21,13 @@ export const INITIAL_PRODUCTS: Product[] = [
     sku: 'SR-1002',
     category: 'Raw Materials',
     uom: 'kg',
-    stock: 100,
+    stock: 150,
     location: 'Main Warehouse',
     reorderingRule: 'Min: 40 kg / Max: 200 kg',
     minStock: 40,
     maxStock: 200,
     locationBalances: {
-      'Main Warehouse': 100,
+      'Main Warehouse': 150,
       'Production Rack': 0,
       'Warehouse 2': 0
     }
@@ -93,7 +93,7 @@ export const INITIAL_RECEIPTS: Receipt[] = [
     productId: 'prod-1',
     quantity: 50,
     uom: 'kg',
-    status: 'Ready',
+    status: 'Done',
     destinationLocation: 'Main Warehouse'
   },
   {

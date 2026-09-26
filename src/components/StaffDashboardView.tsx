@@ -6,6 +6,7 @@ import {
   WarehouseLocation,
   TabType
 } from '../types';
+import { AcceptTransferModal, ConfirmTransferCompletionModal } from './Modals';
 
 interface StaffDashboardViewProps {
   activeTab?: TabType;
@@ -32,6 +33,12 @@ export const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
   onValidateDelivery,
   onApplyAdjustment
 }) => {
+  // Accept Transfer Modal State (Slide-to-confirm)
+  const [acceptModalTransfer, setAcceptModalTransfer] = useState<InternalTransfer | null>(null);
+
+  // Confirm Transfer Completion Modal State (Slide-to-confirm)
+  const [confirmModalTransfer, setConfirmModalTransfer] = useState<InternalTransfer | null>(null);
+
   // Counting State
   const [isCountingActive, setIsCountingActive] = useState(false);
   const [countingProductId, setCountingProductId] = useState<string>('prod-1'); // Steel Rods
@@ -172,7 +179,7 @@ export const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
                     <div className="staff-op-footer">
                       <div>
                         {isCompleted && (
-                          <span className="badge badge-done">✓ Transfer Completed</span>
+                          <span className="badge badge-done">Completed</span>
                         )}
                         {isInProgress && (
                           <span className="badge badge-ready">In Progress</span>
@@ -187,7 +194,7 @@ export const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
                           <button
                             type="button"
                             className="btn btn-sm btn-primary"
-                            onClick={() => onAcceptTransfer(t.id)}
+                            onClick={() => setAcceptModalTransfer(t)}
                           >
                             Accept Transfer
                           </button>
@@ -197,14 +204,14 @@ export const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
                             type="button"
                             className="btn btn-sm btn-primary"
                             style={{ backgroundColor: 'var(--status-success-text)', borderColor: 'var(--status-success-text)' }}
-                            onClick={() => onConfirmTransferCompleted(t.id)}
+                            onClick={() => setConfirmModalTransfer(t)}
                           >
                             Confirm Transfer Completed
                           </button>
                         )}
                         {isCompleted && (
-                          <span style={{ fontSize: 12, color: 'var(--status-success-text)', fontWeight: 600 }}>
-                            Done
+                          <span style={{ fontSize: 13, color: 'var(--status-success-text)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                            ✓ Transfer Completed
                           </span>
                         )}
                       </div>
@@ -464,6 +471,28 @@ export const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
         )}
 
       </div>
+
+      {/* Accept Internal Transfer Slide-to-Confirm Modal */}
+      <AcceptTransferModal
+        isOpen={!!acceptModalTransfer}
+        transfer={acceptModalTransfer}
+        onClose={() => setAcceptModalTransfer(null)}
+        onAccept={(transferId) => {
+          onAcceptTransfer(transferId);
+          setAcceptModalTransfer(null);
+        }}
+      />
+
+      {/* Confirm Internal Transfer Completion Modal */}
+      <ConfirmTransferCompletionModal
+        isOpen={!!confirmModalTransfer}
+        transfer={confirmModalTransfer}
+        onClose={() => setConfirmModalTransfer(null)}
+        onConfirm={(transferId) => {
+          onConfirmTransferCompleted(transferId);
+          setConfirmModalTransfer(null);
+        }}
+      />
     </section>
   );
 };

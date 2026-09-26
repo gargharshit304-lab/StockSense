@@ -82,7 +82,7 @@ export interface InventoryAdjustment {
 export interface MoveHistoryItem {
   id: string;
   product: string;
-  type: 'Receipt' | 'Internal' | 'Delivery' | 'Adjustment';
+  type: 'Receipt' | 'Internal' | 'Delivery' | 'Adjustment' | 'Internal Transfer';
   from: string;
   to: string;
   quantity: string;
@@ -123,5 +123,6 @@ export interface StaffNotification {
   transferId: string;
   read: boolean;
   timestamp: string;
+  status?: 'Waiting' | 'In Progress' | 'Completed' | string;
 }
 
