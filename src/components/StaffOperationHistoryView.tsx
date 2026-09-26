@@ -143,7 +143,7 @@ export const StaffOperationHistoryView: React.FC<StaffOperationHistoryViewProps>
                       title="Click to view operation details"
                     >
                       <td>
-                        <span style={{ fontWeight: 700, color: 'var(--primary-purple)' }}>
+                        <span className="staff-op-id">
                           {op.operationId}
                         </span>
                       </td>
@@ -204,8 +204,8 @@ export const StaffOperationHistoryView: React.FC<StaffOperationHistoryViewProps>
             <div className="modal-header">
               <div>
                 <h3 className="modal-title">Operation Details</h3>
-                <span style={{ fontSize: 12, color: 'var(--primary-purple)', fontWeight: 600 }}>
-                  {selectedOp.operationId} • {selectedOp.operationType}
+                <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 500 }}>
+                  <span style={{ fontFamily: 'ui-monospace, monospace', fontWeight: 600, color: 'var(--text-dark)' }}>{selectedOp.operationId}</span> • {selectedOp.operationType}
                 </span>
               </div>
               <button
@@ -228,14 +228,14 @@ export const StaffOperationHistoryView: React.FC<StaffOperationHistoryViewProps>
                   <>
                     <div className="transfer-detail-item">
                       <span className="transfer-detail-label">Operation ID</span>
-                      <span className="transfer-detail-val" style={{ color: 'var(--primary-purple)' }}>
+                      <span className="transfer-detail-val" style={{ fontFamily: 'ui-monospace, monospace' }}>
                         {selectedOp.operationId}
                       </span>
                     </div>
 
                     <div className="transfer-detail-item">
                       <span className="transfer-detail-label">Transfer ID</span>
-                      <span className="transfer-detail-val">
+                      <span className="transfer-detail-val" style={{ fontFamily: 'ui-monospace, monospace' }}>
                         {selectedOp.referenceId || selectedOp.operationId}
                       </span>
                     </div>
@@ -247,7 +247,7 @@ export const StaffOperationHistoryView: React.FC<StaffOperationHistoryViewProps>
 
                     <div className="transfer-detail-item">
                       <span className="transfer-detail-label">Quantity</span>
-                      <span className="transfer-detail-val" style={{ color: 'var(--primary-purple)' }}>
+                      <span className="transfer-detail-val">
                         {selectedOp.quantity}
                       </span>
                     </div>
@@ -280,7 +280,7 @@ export const StaffOperationHistoryView: React.FC<StaffOperationHistoryViewProps>
                   <>
                     <div className="transfer-detail-item">
                       <span className="transfer-detail-label">Operation ID</span>
-                      <span className="transfer-detail-val" style={{ color: 'var(--primary-purple)' }}>
+                      <span className="transfer-detail-val" style={{ fontFamily: 'ui-monospace, monospace' }}>
                         {selectedOp.operationId}
                       </span>
                     </div>
@@ -297,7 +297,7 @@ export const StaffOperationHistoryView: React.FC<StaffOperationHistoryViewProps>
 
                     <div className="transfer-detail-item">
                       <span className="transfer-detail-label">Quantity</span>
-                      <span className="transfer-detail-val" style={{ color: 'var(--primary-purple)' }}>
+                      <span className="transfer-detail-val">
                         {selectedOp.quantity}
                       </span>
                     </div>
@@ -328,7 +328,7 @@ export const StaffOperationHistoryView: React.FC<StaffOperationHistoryViewProps>
                   <>
                     <div className="transfer-detail-item">
                       <span className="transfer-detail-label">Operation ID</span>
-                      <span className="transfer-detail-val" style={{ color: 'var(--primary-purple)' }}>
+                      <span className="transfer-detail-val" style={{ fontFamily: 'ui-monospace, monospace' }}>
                         {selectedOp.operationId}
                       </span>
                     </div>
