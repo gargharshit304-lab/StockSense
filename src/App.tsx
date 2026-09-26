@@ -12,7 +12,8 @@ import {
   ToastNotification,
   UserRole,
   StaffNotification,
-  StaffOperationHistoryItem
+  StaffOperationHistoryItem,
+  AuthUser
 } from './types';
 import { 
   INITIAL_LOCATIONS, 
@@ -26,6 +27,7 @@ import {
   formatStaffOperationDate
 } from './initialData';
 
+import { AuthView } from './components/AuthView';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { DashboardView } from './components/DashboardView';
@@ -51,6 +53,9 @@ import { Toast } from './components/Toast';
 const STORAGE_KEY = 'stocksense_ts_state_v1';
 
 const getRouteForTab = (tab: TabType, role: UserRole): string => {
+  if (tab === 'login') return '/login';
+  if (tab === 'signup') return '/signup';
+
   if (role === 'warehouse_staff') {
     switch (tab) {
       case 'dashboard':
@@ -64,36 +69,44 @@ const getRouteForTab = (tab: TabType, role: UserRole): string => {
       case 'staff-history':
         return '/staff/history';
       case 'profile':
-        return '/profile';
+        return '/staff/profile';
       default:
         return '/staff/dashboard';
     }
   } else {
     switch (tab) {
       case 'dashboard':
-        return '/dashboard';
+        return '/manager/dashboard';
       case 'products':
-        return '/products';
+        return '/manager/products';
       case 'receipts':
-        return '/receipts';
+        return '/manager/receipts';
       case 'delivery-orders':
-        return '/delivery-orders';
+        return '/manager/delivery-orders';
       case 'inventory-adjustment':
-        return '/inventory-adjustment';
+        return '/manager/inventory-adjustment';
       case 'move-history':
-        return '/move-history';
+        return '/manager/move-history';
       case 'warehouse':
-        return '/warehouse';
+        return '/manager/warehouse';
       case 'profile':
-        return '/profile';
+        return '/manager/profile';
       default:
-        return '/dashboard';
+        return '/manager/dashboard';
     }
   }
 };
 
 const parseRoute = (path: string): { tab: TabType; role?: UserRole } | null => {
   const clean = path.toLowerCase().replace(/\/$/, '') || '/';
+  if (clean === '/login') {
+    return { tab: 'login' };
+  }
+  if (clean === '/signup') {
+    return { tab: 'signup' };
+  }
+
+  // Warehouse Staff Routes
   if (clean === '/staff/dashboard') {
     return { tab: 'dashboard', role: 'warehouse_staff' };
   }
@@ -109,29 +122,34 @@ const parseRoute = (path: string): { tab: TabType; role?: UserRole } | null => {
   if (clean === '/staff/history') {
     return { tab: 'staff-history', role: 'warehouse_staff' };
   }
-  if (clean === '/profile') {
-    return { tab: 'profile' };
+  if (clean === '/staff/profile') {
+    return { tab: 'profile', role: 'warehouse_staff' };
   }
-  if (clean === '/dashboard') {
+
+  // Manager Routes
+  if (clean === '/manager/dashboard' || clean === '/dashboard') {
     return { tab: 'dashboard', role: 'manager' };
   }
-  if (clean === '/products') {
+  if (clean === '/manager/products' || clean === '/products') {
     return { tab: 'products', role: 'manager' };
   }
-  if (clean === '/receipts') {
+  if (clean === '/manager/receipts' || clean === '/receipts') {
     return { tab: 'receipts', role: 'manager' };
   }
-  if (clean === '/delivery-orders') {
+  if (clean === '/manager/delivery-orders' || clean === '/delivery-orders') {
     return { tab: 'delivery-orders', role: 'manager' };
   }
-  if (clean === '/inventory-adjustment') {
+  if (clean === '/manager/inventory-adjustment' || clean === '/inventory-adjustment') {
     return { tab: 'inventory-adjustment', role: 'manager' };
   }
-  if (clean === '/move-history') {
+  if (clean === '/manager/move-history' || clean === '/move-history') {
     return { tab: 'move-history', role: 'manager' };
   }
-  if (clean === '/warehouse') {
+  if (clean === '/manager/warehouse' || clean === '/warehouse') {
     return { tab: 'warehouse', role: 'manager' };
+  }
+  if (clean === '/manager/profile' || clean === '/profile') {
+    return { tab: 'profile', role: 'manager' };
   }
   return null;
 };
@@ -188,14 +206,55 @@ export const App: React.FC = () => {
 
   const [locations] = useState<WarehouseLocation[]>(INITIAL_LOCATIONS);
 
-  // Initial Route Resolution
-  const initialRouteInfo = typeof window !== 'undefined' ? parseRoute(window.location.pathname) : null;
+  // Authentication State
+  const AUTH_STORAGE_KEY = 'stocksense_user';
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(() => {
+    try {
+      const saved = localStorage.getItem('stocksense_user');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return null;
+  });
 
-  // Active Role ('manager' | 'warehouse_staff')
-  const [userRole, setUserRole] = useState<UserRole>(initialRouteInfo?.role || 'warehouse_staff');
+  // Effective Role derived strictly from authenticated user
+  const userRole: UserRole = currentUser ? currentUser.role : 'warehouse_staff';
 
-  // Active Tab
-  const [activeTab, setActiveTab] = useState<TabType>(initialRouteInfo?.tab || 'dashboard');
+  // Route resolution helper with role enforcement & authentication guards
+  const resolveCurrentRoute = (user: AuthUser | null): { tab: TabType; path: string } => {
+    const rawPath = typeof window !== 'undefined' ? window.location.pathname : '/login';
+    const parsed = parseRoute(rawPath);
+
+    // 1. Unauthenticated users can only view /login or /signup
+    if (!user) {
+      if (parsed?.tab === 'signup') {
+        return { tab: 'signup', path: '/signup' };
+      }
+      return { tab: 'login', path: '/login' };
+    }
+
+    // 2. Authenticated user visiting /login or /signup is redirected to their role dashboard
+    if (!parsed || parsed.tab === 'login' || parsed.tab === 'signup') {
+      const defaultRoute = getRouteForTab('dashboard', user.role);
+      return { tab: 'dashboard', path: defaultRoute };
+    }
+
+    // 3. Manager cross-role guard: redirect /staff/* to /manager/dashboard
+    if (user.role === 'manager' && parsed.role === 'warehouse_staff') {
+      return { tab: 'dashboard', path: '/manager/dashboard' };
+    }
+
+    // 4. Warehouse Staff cross-role guard: redirect /manager/* to /staff/dashboard
+    if (user.role === 'warehouse_staff' && parsed.role === 'manager') {
+      return { tab: 'dashboard', path: '/staff/dashboard' };
+    }
+
+    // 5. Valid route for the authenticated role
+    return { tab: parsed.tab, path: getRouteForTab(parsed.tab, user.role) };
+  };
+
+  // Initial Route & Tab Resolution
+  const initialResolved = resolveCurrentRoute(currentUser);
+  const [activeTab, setActiveTab] = useState<TabType>(initialResolved.tab);
 
   // Staff Notifications
   const [staffNotifications, setStaffNotifications] = useState<StaffNotification[]>(() => {
@@ -289,28 +348,25 @@ export const App: React.FC = () => {
     }
   }, [products, receipts, deliveries, transfers, adjustments, moveHistory, staffNotifications, staffOperations]);
 
-  // Handle popstate (Browser back/forward buttons)
+  // Route Synchronization & Guard Enforcement
   useEffect(() => {
-    const handlePopState = () => {
-      const match = parseRoute(window.location.pathname);
-      if (match) {
-        if (match.role) setUserRole(match.role);
-        setActiveTab(match.tab);
+    const syncRoute = () => {
+      const resolved = resolveCurrentRoute(currentUser);
+      setActiveTab(resolved.tab);
+      if (window.location.pathname !== resolved.path) {
+        window.history.replaceState(null, '', resolved.path);
       }
     };
+
+    syncRoute();
+
+    const handlePopState = () => {
+      syncRoute();
+    };
+
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
-
-  // Sync initial URL
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const current = window.location.pathname;
-      if (current === '/' || !parseRoute(current)) {
-        window.history.replaceState(null, '', getRouteForTab(activeTab, userRole));
-      }
-    }
-  }, []);
+  }, [currentUser]);
 
   const handleNavigate = (tab: TabType) => {
     setActiveTab(tab);
@@ -322,25 +378,38 @@ export const App: React.FC = () => {
     } catch {}
   };
 
-  const handleRoleChange = (newRole: UserRole) => {
-    setUserRole(newRole);
-    let nextTab = activeTab;
-    if (newRole === 'warehouse_staff') {
-      if (['products', 'receipts', 'delivery-orders', 'inventory-adjustment', 'move-history', 'warehouse'].includes(activeTab)) {
-        nextTab = 'dashboard';
-      }
-    } else if (newRole === 'manager') {
-      if (['staff-transfers', 'staff-delivery-picking', 'staff-stock-counting', 'staff-history'].includes(activeTab)) {
-        nextTab = 'dashboard';
-      }
-    }
-    setActiveTab(nextTab);
+  const handleLoginSuccess = (user: AuthUser) => {
+    setCurrentUser(user);
     try {
-      const targetRoute = getRouteForTab(nextTab, newRole);
-      if (window.location.pathname !== targetRoute) {
-        window.history.pushState(null, '', targetRoute);
-      }
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
     } catch {}
+    const targetRoute = getRouteForTab('dashboard', user.role);
+    setActiveTab('dashboard');
+    window.history.pushState(null, '', targetRoute);
+    showToast(`Welcome back, ${user.name}!`, 'success');
+  };
+
+  const handleLogout = () => {
+    setIsLogoutModalOpen(false);
+    try {
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+    } catch {}
+    setCurrentUser(null);
+    setActiveTab('login');
+    window.history.pushState(null, '', '/login');
+    showToast('You have been logged out of StockSense.', 'info');
+  };
+
+  const handleRoleChange = (newRole: UserRole) => {
+    // Kept for backward compatibility if ever called
+    if (currentUser) {
+      const updatedUser: AuthUser = { ...currentUser, role: newRole };
+      setCurrentUser(updatedUser);
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(updatedUser));
+    }
+    const defaultRoute = getRouteForTab('dashboard', newRole);
+    setActiveTab('dashboard');
+    window.history.pushState(null, '', defaultRoute);
   };
 
   const showToast = (message: string, type: 'info' | 'success' | 'danger' = 'info') => {
@@ -919,7 +988,7 @@ export const App: React.FC = () => {
     }
 
     if (userRole !== 'manager') {
-      setUserRole('manager');
+      handleRoleChange('manager');
     }
 
     if (step === 1) {
@@ -997,6 +1066,25 @@ export const App: React.FC = () => {
     }
   };
 
+  if (!currentUser || activeTab === 'login' || activeTab === 'signup') {
+    return (
+      <div className="stocksense-app-root">
+        <AuthView
+          mode={activeTab === 'signup' ? 'signup' : 'login'}
+          onNavigate={(targetMode) => {
+            setActiveTab(targetMode);
+            window.history.pushState(null, '', targetMode === 'signup' ? '/signup' : '/login');
+          }}
+          onLoginSuccess={handleLoginSuccess}
+          onSignupSuccess={() => {
+            showToast('Account created successfully. Please sign in.', 'success');
+          }}
+        />
+        <Toast toasts={toasts} />
+      </div>
+    );
+  }
+
   return (
     <div className="app-container">
       {/* Sidebar Navigation */}
@@ -1013,7 +1101,7 @@ export const App: React.FC = () => {
         <Header
           activeTab={activeTab}
           userRole={userRole}
-          onRoleChange={handleRoleChange}
+          user={currentUser}
           notifications={staffNotifications}
           transfers={transfers}
           onNavigate={handleNavigate}
@@ -1111,7 +1199,7 @@ export const App: React.FC = () => {
           )}
 
           {activeTab === 'profile' && (
-            <ProfileView userRole={userRole} onLogoutClick={() => setIsLogoutModalOpen(true)} />
+            <ProfileView userRole={userRole} user={currentUser} onLogoutClick={() => setIsLogoutModalOpen(true)} />
           )}
         </main>
       </div>
@@ -1162,10 +1250,7 @@ export const App: React.FC = () => {
       <LogoutModal
         isOpen={isLogoutModalOpen}
         onClose={() => setIsLogoutModalOpen(false)}
-        onConfirm={() => {
-          setIsLogoutModalOpen(false);
-          showToast('You have been logged out of StockSense.', 'info');
-        }}
+        onConfirm={handleLogout}
       />
 
       {/* Floating Toast Notification Container */}

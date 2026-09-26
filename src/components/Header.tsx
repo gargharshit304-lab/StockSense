@@ -1,10 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { TabType, UserRole, StaffNotification, InternalTransfer } from '../types';
+import { TabType, UserRole, StaffNotification, InternalTransfer, AuthUser } from '../types';
 
 interface HeaderProps {
   activeTab: TabType;
   userRole: UserRole;
-  onRoleChange: (role: UserRole) => void;
+  user?: AuthUser | null;
   notifications: StaffNotification[];
   transfers: InternalTransfer[];
   onNavigate: (tab: TabType) => void;
@@ -15,6 +15,8 @@ interface HeaderProps {
 }
 
 const TITLE_MAP: Record<TabType, string> = {
+  login: 'Sign In',
+  signup: 'Create Account',
   dashboard: 'Dashboard',
   products: 'Products',
   receipts: 'Receipts',
@@ -32,7 +34,7 @@ const TITLE_MAP: Record<TabType, string> = {
 export const Header: React.FC<HeaderProps> = ({
   activeTab,
   userRole,
-  onRoleChange,
+  user,
   notifications,
   transfers,
   onNavigate,
@@ -65,6 +67,12 @@ export const Header: React.FC<HeaderProps> = ({
     return 0;
   });
 
+  const initials = user?.name
+    ? user.name.trim().split(/\s+/).map(p => p[0]).join('').slice(0, 2).toUpperCase()
+    : (userRole === 'warehouse_staff' ? 'WS' : 'AM');
+  const displayName = user?.name || (userRole === 'warehouse_staff' ? 'Warehouse Staff' : 'Alex Morgan');
+  const displayRole = userRole === 'manager' ? 'Inventory Lead' : 'Floor Operations';
+
   return (
     <header className="top-header">
       <div className="header-left">
@@ -72,24 +80,6 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       <div className="header-right">
-        {/* Role Switcher Pill */}
-        <div className="role-switcher" title="Switch active system perspective">
-          <button
-            type="button"
-            className={`role-switcher-btn ${userRole === 'manager' ? 'active' : ''}`}
-            onClick={() => onRoleChange('manager')}
-          >
-            Manager
-          </button>
-          <button
-            type="button"
-            className={`role-switcher-btn ${userRole === 'warehouse_staff' ? 'active' : ''}`}
-            onClick={() => onRoleChange('warehouse_staff')}
-          >
-            Warehouse Staff
-          </button>
-        </div>
-
         {/* Guided Demo Steps Shortcuts */}
         <div className="demo-quick-actions">
           <button
@@ -261,14 +251,14 @@ export const Header: React.FC<HeaderProps> = ({
           onClick={() => onNavigate('profile')}
         >
           <div className="profile-avatar">
-            {userRole === 'warehouse_staff' ? 'WS' : 'AM'}
+            {initials}
           </div>
           <div className="profile-info-text">
             <div className="profile-name">
-              {userRole === 'warehouse_staff' ? 'Warehouse Staff' : 'Alex Morgan'}
+              {displayName}
             </div>
             <div className="profile-role">
-              {userRole === 'warehouse_staff' ? 'Floor Operations' : 'Inventory Lead'}
+              {displayRole}
             </div>
           </div>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

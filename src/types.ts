@@ -13,7 +13,9 @@ export type TabType =
   | 'staff-transfers'
   | 'staff-delivery-picking'
   | 'staff-stock-counting'
-  | 'staff-history';
+  | 'staff-history'
+  | 'login'
+  | 'signup';
 
 export interface Product {
   id: string;
@@ -114,6 +116,13 @@ export interface FilterState {
 }
 
 export type UserRole = 'manager' | 'warehouse_staff';
+
+export interface AuthUser {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+}
 
 export interface StaffNotification {
   id: string;
