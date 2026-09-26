@@ -393,10 +393,14 @@ export const App: React.FC = () => {
     setIsLogoutModalOpen(false);
     try {
       localStorage.removeItem(AUTH_STORAGE_KEY);
+      localStorage.removeItem('stocksense_user');
     } catch {}
     setCurrentUser(null);
     setActiveTab('login');
-    window.history.pushState(null, '', '/login');
+    if (typeof window !== 'undefined') {
+      window.history.pushState(null, '', '/login');
+      window.history.replaceState(null, '', '/login');
+    }
     showToast('You have been logged out of StockSense.', 'info');
   };
 
@@ -1109,6 +1113,7 @@ export const App: React.FC = () => {
           onViewTransfer={handleNotificationViewTransfer}
           onMarkNotificationAsRead={handleMarkNotificationAsRead}
           onMarkAllAsRead={handleMarkAllNotificationsAsRead}
+          onLogoutClick={() => setIsLogoutModalOpen(true)}
         />
 
         <main className="content-viewport">

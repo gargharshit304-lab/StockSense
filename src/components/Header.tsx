@@ -12,6 +12,7 @@ interface HeaderProps {
   onViewTransfer: (transferId: string, notifId?: string) => void;
   onMarkNotificationAsRead?: (notifId: string) => void;
   onMarkAllAsRead?: () => void;
+  onLogoutClick?: () => void;
 }
 
 const TITLE_MAP: Record<TabType, string> = {
@@ -41,16 +42,22 @@ export const Header: React.FC<HeaderProps> = ({
   onTriggerDemoStep,
   onViewTransfer,
   onMarkNotificationAsRead,
-  onMarkAllAsRead
+  onMarkAllAsRead,
+  onLogoutClick
 }) => {
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const profileRef = useRef<HTMLDivElement>(null);
 
-  // Close popover when clicking outside
+  // Close popovers when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
         setIsNotifOpen(false);
+      }
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
+        setIsProfileOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -244,26 +251,95 @@ export const Header: React.FC<HeaderProps> = ({
           )}
         </div>
 
-        {/* Profile Menu (Shows Role Appropriately) */}
-        <div
-          className="profile-menu-btn"
-          title="View Profile"
-          onClick={() => onNavigate('profile')}
-        >
-          <div className="profile-avatar">
-            {initials}
-          </div>
-          <div className="profile-info-text">
-            <div className="profile-name">
-              {displayName}
+        {/* Profile Menu with Dropdown Popover */}
+        <div className="profile-wrapper" ref={profileRef} style={{ position: 'relative' }}>
+          <button
+            type="button"
+            className={`profile-menu-btn ${isProfileOpen ? 'active' : ''}`}
+            title="Account Menu"
+            onClick={() => setIsProfileOpen(prev => !prev)}
+            aria-expanded={isProfileOpen}
+          >
+            <div className="profile-avatar">
+              {initials}
             </div>
-            <div className="profile-role">
-              {displayRole}
+            <div className="profile-info-text">
+              <div className="profile-name">
+                {displayName}
+              </div>
+              <div className="profile-role">
+                {displayRole}
+              </div>
             </div>
-          </div>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <polyline points="6 9 12 15 18 9"></polyline>
-          </svg>
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              style={{
+                transform: isProfileOpen ? 'rotate(180deg)' : 'none',
+                transition: 'transform 0.15s ease'
+              }}
+            >
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </button>
+
+          {isProfileOpen && (
+            <div className="profile-dropdown-popover">
+              <div className="profile-dropdown-header">
+                <div className="profile-avatar-large-sm">{initials}</div>
+                <div className="profile-dropdown-user-info">
+                  <div className="profile-dropdown-name">{displayName}</div>
+                  <div className="profile-dropdown-email">
+                    {user?.email || (userRole === 'warehouse_staff' ? 'staff@stocksense.demo' : 'manager@stocksense.demo')}
+                  </div>
+                  <div className="profile-dropdown-role-badge">
+                    {userRole === 'manager' ? 'Manager • Inventory Lead' : 'Warehouse Staff • Operations'}
+                  </div>
+                </div>
+              </div>
+
+              <div className="profile-dropdown-divider"></div>
+
+              <div className="profile-dropdown-actions">
+                <button
+                  type="button"
+                  className="profile-dropdown-item"
+                  onClick={() => {
+                    setIsProfileOpen(false);
+                    onNavigate('profile');
+                  }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                  </svg>
+                  <span>My Profile</span>
+                </button>
+
+                <button
+                  type="button"
+                  className="profile-dropdown-item logout"
+                  onClick={() => {
+                    setIsProfileOpen(false);
+                    if (onLogoutClick) {
+                      onLogoutClick();
+                    }
+                  }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                    <polyline points="16 17 21 12 16 7"></polyline>
+                    <line x1="21" y1="12" x2="9" y2="12"></line>
+                  </svg>
+                  <span>Logout</span>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </header>
