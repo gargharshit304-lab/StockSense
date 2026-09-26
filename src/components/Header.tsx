@@ -1,11 +1,17 @@
-import React from 'react';
-import { TabType } from '../types';
+import React, { useState, useRef, useEffect } from 'react';
+import { TabType, UserRole, StaffNotification, InternalTransfer } from '../types';
 
 interface HeaderProps {
   activeTab: TabType;
+  userRole: UserRole;
+  onRoleChange: (role: UserRole) => void;
+  notifications: StaffNotification[];
+  transfers: InternalTransfer[];
   onNavigate: (tab: TabType) => void;
   onTriggerDemoStep: (step: number) => void;
-  onNotificationClick: () => void;
+  onViewTransfer: (transferId: string, notifId?: string) => void;
+  onMarkNotificationAsRead?: (notifId: string) => void;
+  onMarkAllAsRead?: () => void;
 }
 
 const TITLE_MAP: Record<TabType, string> = {
@@ -16,15 +22,49 @@ const TITLE_MAP: Record<TabType, string> = {
   'inventory-adjustment': 'Inventory Adjustment',
   'move-history': 'Move History',
   warehouse: 'Warehouse',
-  profile: 'My Profile'
+  profile: 'My Profile',
+  'staff-transfers': 'Internal Transfers',
+  'staff-delivery-picking': 'Delivery / Picking',
+  'staff-stock-counting': 'Stock Counting',
+  'staff-history': 'Operation History'
 };
 
 export const Header: React.FC<HeaderProps> = ({
   activeTab,
+  userRole,
+  onRoleChange,
+  notifications,
+  transfers,
   onNavigate,
   onTriggerDemoStep,
-  onNotificationClick
+  onViewTransfer,
+  onMarkNotificationAsRead,
+  onMarkAllAsRead
 }) => {
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
+
+  // Close popover when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setIsNotifOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const unreadCount = userRole === 'warehouse_staff'
+    ? notifications.filter(n => !n.read).length
+    : 0;
+
+  const sortedNotifications = [...notifications].sort((a, b) => {
+    if (!a.read && b.read) return -1;
+    if (a.read && !b.read) return 1;
+    return 0;
+  });
+
   return (
     <header className="top-header">
       <div className="header-left">
@@ -32,6 +72,24 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       <div className="header-right">
+        {/* Role Switcher Pill */}
+        <div className="role-switcher" title="Switch active system perspective">
+          <button
+            type="button"
+            className={`role-switcher-btn ${userRole === 'manager' ? 'active' : ''}`}
+            onClick={() => onRoleChange('manager')}
+          >
+            Manager
+          </button>
+          <button
+            type="button"
+            className={`role-switcher-btn ${userRole === 'warehouse_staff' ? 'active' : ''}`}
+            onClick={() => onRoleChange('warehouse_staff')}
+          >
+            Warehouse Staff
+          </button>
+        </div>
+
         {/* Guided Demo Steps Shortcuts */}
         <div className="demo-quick-actions">
           <button
@@ -76,31 +134,142 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
         </div>
 
-        {/* Notification Icon */}
-        <button
-          type="button"
-          className="icon-btn"
-          title="Notifications"
-          aria-label="Notifications"
-          onClick={onNotificationClick}
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-          </svg>
-          <span className="notification-badge"></span>
-        </button>
+        {/* Notification Bell with Popover */}
+        <div className="notification-wrapper" ref={notifRef}>
+          <button
+            type="button"
+            className="icon-btn"
+            title="Notifications"
+            aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
+            onClick={() => setIsNotifOpen(prev => !prev)}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+            </svg>
+            {unreadCount > 0 && (
+              <span className="notification-badge">{unreadCount}</span>
+            )}
+          </button>
 
-        {/* Profile Menu */}
+          {isNotifOpen && (
+            <div className="notification-popover">
+              <div className="notif-header">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span className="notif-header-title">Notifications</span>
+                  {unreadCount > 0 && (
+                    <span className="notif-badge-count">{unreadCount} unread</span>
+                  )}
+                </div>
+                {unreadCount > 0 && onMarkAllAsRead && (
+                  <button
+                    type="button"
+                    className="notif-mark-read-btn"
+                    onClick={onMarkAllAsRead}
+                    title="Mark all notifications as read"
+                  >
+                    Mark all as read
+                  </button>
+                )}
+              </div>
+
+              <div className="notif-list">
+                {userRole === 'warehouse_staff' ? (
+                  notifications.length === 0 ? (
+                    <div className="notif-empty-state">
+                      <div className="notif-empty-title">No new notifications</div>
+                      <div className="notif-empty-desc">You're all caught up.</div>
+                    </div>
+                  ) : (
+                    sortedNotifications.map(n => {
+                      const matchingTransfer = transfers.find(t => t.id === n.transferId);
+                      const isCompleted = matchingTransfer
+                        ? (matchingTransfer.status === 'Done' || matchingTransfer.workflowStep === 'completed')
+                        : n.status === 'Completed';
+                      const isInProgress = matchingTransfer
+                        ? matchingTransfer.workflowStep === 'in_progress'
+                        : n.status === 'In Progress';
+                      const isUnread = !n.read && !isCompleted;
+
+                      return (
+                        <div
+                          key={n.id}
+                          className={`notif-item ${isUnread ? 'unread' : 'read'}`}
+                          onClick={() => {
+                            if (!n.read && onMarkNotificationAsRead) {
+                              onMarkNotificationAsRead(n.id);
+                            }
+                          }}
+                        >
+                          <div className="notif-item-top">
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              {isCompleted && (
+                                <span style={{ color: 'var(--status-success-text)', fontSize: 13, fontWeight: 700 }}>✓</span>
+                              )}
+                              <span className="notif-item-title">{n.title}</span>
+                              {isUnread && <span className="notif-unread-dot" title="Unread notification"></span>}
+                            </div>
+                            <span className="notif-item-time">{n.timestamp}</span>
+                          </div>
+
+                          <div className="notif-item-detail">{n.quantity} {n.product}</div>
+                          <div className="notif-item-route">{n.route}</div>
+
+                          <div className="notif-item-footer">
+                            <div>
+                              {isCompleted ? (
+                                <span className="badge badge-done">Completed</span>
+                              ) : isInProgress ? (
+                                <span className="badge badge-ready">In Progress</span>
+                              ) : (
+                                <span className="badge badge-waiting">Waiting for your acceptance</span>
+                              )}
+                            </div>
+
+                            {!isCompleted && (
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-primary"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setIsNotifOpen(false);
+                                  onViewTransfer(n.transferId, n.id);
+                                }}
+                              >
+                                View Transfer
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )
+                ) : (
+                  <div style={{ padding: '16px', fontSize: 12, color: 'var(--text-secondary)' }}>
+                    <div><strong>Inventory Operations Status:</strong> All scheduled transfers queued for warehouse floor execution.</div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Profile Menu (Shows Role Appropriately) */}
         <div
           className="profile-menu-btn"
           title="View Profile"
           onClick={() => onNavigate('profile')}
         >
-          <div className="profile-avatar">AM</div>
+          <div className="profile-avatar">
+            {userRole === 'warehouse_staff' ? 'WS' : 'AM'}
+          </div>
           <div className="profile-info-text">
-            <div className="profile-name">Manager</div>
-            <div className="profile-role">Inventory Lead</div>
+            <div className="profile-name">
+              {userRole === 'warehouse_staff' ? 'Warehouse Staff' : 'Alex Morgan'}
+            </div>
+            <div className="profile-role">
+              {userRole === 'warehouse_staff' ? 'Floor Operations' : 'Inventory Lead'}
+            </div>
           </div>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <polyline points="6 9 12 15 18 9"></polyline>

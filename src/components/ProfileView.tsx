@@ -1,10 +1,14 @@
 import React from 'react';
+import { UserRole } from '../types';
 
 interface ProfileViewProps {
+  userRole: UserRole;
   onLogoutClick: () => void;
 }
 
-export const ProfileView: React.FC<ProfileViewProps> = ({ onLogoutClick }) => {
+export const ProfileView: React.FC<ProfileViewProps> = ({ userRole, onLogoutClick }) => {
+  const isStaff = userRole === 'warehouse_staff';
+
   return (
     <section className="page-view active">
       <div className="page-heading-block">
@@ -15,26 +19,28 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onLogoutClick }) => {
       </div>
 
       <div className="profile-card">
-        <div className="profile-avatar-large">AM</div>
+        <div className="profile-avatar-large">
+          {isStaff ? 'WS' : 'AM'}
+        </div>
 
         <div className="profile-field-row">
           <span className="profile-field-label">Full Name:</span>
-          <span className="profile-field-value">Harshit</span>
+          <span className="profile-field-value">{isStaff ? 'Warehouse Staff' : 'Alex Morgan'}</span>
         </div>
 
         <div className="profile-field-row">
           <span className="profile-field-label">Email:</span>
-          <span className="profile-field-value">manager@gmail.com</span>
+          <span className="profile-field-value">{isStaff ? 'staff@stocksense.internal' : 'manager@stocksense.internal'}</span>
         </div>
 
         <div className="profile-field-row">
           <span className="profile-field-label">System Role:</span>
-          <span className="profile-field-value">Inventory Operations Lead</span>
+          <span className="profile-field-value">{isStaff ? 'Warehouse Staff (Operations)' : 'Inventory Operations Lead'}</span>
         </div>
 
         <div className="profile-field-row">
           <span className="profile-field-label">Assigned Facility:</span>
-          <span className="profile-field-value">Main Warehouse</span>
+          <span className="profile-field-value">{isStaff ? 'Main Warehouse / Production Rack' : 'Main Warehouse'}</span>
         </div>
 
         <div className="profile-field-row">

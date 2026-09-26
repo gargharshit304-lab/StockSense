@@ -9,7 +9,11 @@ export type TabType =
   | 'inventory-adjustment' 
   | 'move-history' 
   | 'warehouse' 
-  | 'profile';
+  | 'profile'
+  | 'staff-transfers'
+  | 'staff-delivery-picking'
+  | 'staff-stock-counting'
+  | 'staff-history';
 
 export interface Product {
   id: string;
@@ -79,7 +83,7 @@ export interface InventoryAdjustment {
 export interface MoveHistoryItem {
   id: string;
   product: string;
-  type: 'Receipt' | 'Internal' | 'Delivery' | 'Adjustment';
+  type: 'Receipt' | 'Internal' | 'Delivery' | 'Adjustment' | 'Internal Transfer';
   from: string;
   to: string;
   quantity: string;
@@ -108,3 +112,42 @@ export interface FilterState {
   location: string;
   category: string;
 }
+
+export type UserRole = 'manager' | 'warehouse_staff';
+
+export interface StaffNotification {
+  id: string;
+  title: string;
+  product: string;
+  quantity: string;
+  route: string;
+  transferId: string;
+  read: boolean;
+  timestamp: string;
+  status?: 'Waiting' | 'In Progress' | 'Completed' | string;
+}
+
+export type StaffOperationType = 'Internal Transfer' | 'Delivery / Picking' | 'Stock Counting';
+
+export interface StaffOperationHistoryItem {
+  id: string;
+  operationId: string;
+  operationType: StaffOperationType;
+  product: string;
+  quantity: string;
+  numericQty?: number;
+  uom?: string;
+  sourceLocation: string; // "From"
+  destinationLocation: string; // "To"
+  acceptedAt?: string;
+  completedAt: string;
+  status: 'Completed';
+  performedBy: string; // "Warehouse Staff"
+  recordedStock?: string;
+  physicalCount?: string;
+  adjustmentQty?: string;
+  referenceId?: string;
+  notes?: string;
+}
+
+
