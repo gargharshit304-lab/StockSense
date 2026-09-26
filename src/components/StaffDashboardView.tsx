@@ -98,17 +98,23 @@ export const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
         </div>
       </div>
 
-      {/* Staff Overview Banner (shown on Dashboard overview) */}
+      {/* Staff Operational Context Strip */}
       {isAll && (
         <div className="staff-overview-banner">
           <div className="staff-overview-info">
-            <span className="staff-role-badge">Warehouse Staff Mode</span>
+            <span className="staff-context-pill">Floor Operations</span>
+            <span className="staff-overview-divider">•</span>
             <div className="staff-overview-text">
-              Operational workspace for <strong>transfer execution, pick &amp; pack dispatches</strong>, and <strong>stock counting</strong>.
+              Active Facility: <strong>Main Warehouse / Production Rack</strong>
             </div>
           </div>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-            Active Facility: <strong>Main Warehouse / Production Rack</strong>
+          <div className="staff-overview-stats">
+            <span className="staff-stat-chip">
+              <strong>{transfers.filter(t => t.status !== 'Done').length}</strong> Transfers Pending
+            </span>
+            <span className="staff-stat-chip">
+              <strong>{deliveries.filter(d => d.status !== 'Done').length}</strong> Dispatches Queued
+            </span>
           </div>
         </div>
       )}
@@ -123,7 +129,7 @@ export const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
           <div className="staff-section-header">
             <div className="staff-section-title-wrap">
               <div className="staff-section-icon">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                   <polyline points="17 1 21 5 17 9"></polyline>
                   <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
                   <polyline points="7 23 3 19 7 15"></polyline>
@@ -153,9 +159,9 @@ export const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
                     key={t.id} 
                     className={`staff-op-item-card ${isInProgress ? 'in-progress' : ''}`}
                   >
-                    <div>
+                    <div className="staff-card-body">
                       <div className="staff-op-item-top">
-                        <div>
+                        <div className="staff-op-title-area">
                           <span className="staff-op-id">{t.id}</span>
                           <h4 className="staff-op-product-title">{t.productName}</h4>
                         </div>
@@ -163,13 +169,13 @@ export const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
                       </div>
 
                       {/* Route Box */}
-                      <div className="staff-route-box" style={{ marginTop: 12 }}>
+                      <div className="staff-route-box">
                         <div className="staff-route-point">
                           <span className="staff-route-label">From</span>
                           <span className="staff-route-val">{t.fromLocation}</span>
                         </div>
                         <span className="staff-route-arrow">→</span>
-                        <div className="staff-route-point" style={{ textAlign: 'right' }}>
+                        <div className="staff-route-point right">
                           <span className="staff-route-label">To</span>
                           <span className="staff-route-val">{t.toLocation}</span>
                         </div>
@@ -185,11 +191,11 @@ export const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
                           <span className="badge badge-ready">In Progress</span>
                         )}
                         {isWaitingStaff && (
-                          <span className="badge badge-waiting">Waiting for Warehouse Staff</span>
+                          <span className="badge badge-waiting">Waiting Acceptance</span>
                         )}
                       </div>
 
-                      <div>
+                      <div className="staff-card-actions">
                         {isWaitingStaff && (
                           <button
                             type="button"
@@ -202,16 +208,15 @@ export const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
                         {isInProgress && (
                           <button
                             type="button"
-                            className="btn btn-sm btn-primary"
-                            style={{ backgroundColor: 'var(--status-success-text)', borderColor: 'var(--status-success-text)' }}
+                            className="btn btn-sm btn-success"
                             onClick={() => setConfirmModalTransfer(t)}
                           >
                             Confirm Transfer Completed
                           </button>
                         )}
                         {isCompleted && (
-                          <span style={{ fontSize: 13, color: 'var(--status-success-text)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                            ✓ Transfer Completed
+                          <span className="staff-completed-text">
+                            ✓ Done
                           </span>
                         )}
                       </div>
@@ -232,9 +237,9 @@ export const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
           <div className="staff-section-header">
             <div className="staff-section-title-wrap">
               <div className="staff-section-icon">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                   <rect x="1" y="3" width="15" height="13"></rect>
-                  <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
+                  <polygon points="16 8 20 8 23 11 23 16 16 16 8"></polygon>
                   <circle cx="5.5" cy="18.5" r="2.5"></circle>
                   <circle cx="18.5" cy="18.5" r="2.5"></circle>
                 </svg>
@@ -277,9 +282,9 @@ export const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
 
                 return (
                   <div key={d.id} className="staff-op-item-card">
-                    <div>
+                    <div className="staff-card-body">
                       <div className="staff-op-item-top">
-                        <div>
+                        <div className="staff-op-title-area">
                           <span className="staff-op-id">{d.id}</span>
                           <h4 className="staff-op-product-title">{d.productName}</h4>
                         </div>
@@ -287,10 +292,8 @@ export const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
                       </div>
 
                       {/* Operation Flow Steps */}
-                      <div style={{ marginTop: 12 }}>
-                        <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>
-                          Operation Flow:
-                        </div>
+                      <div className="delivery-flow-container">
+                        <span className="delivery-flow-label">Operation Step:</span>
                         <div className="delivery-steps">
                           <span className={pickClass}>1. Pick</span>
                           <span className="step-divider">→</span>
@@ -310,7 +313,7 @@ export const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
                         )}
                       </div>
 
-                      <div>
+                      <div className="staff-card-actions">
                         {!isDone ? (
                           currentStep === 'pick' ? (
                             <button
@@ -338,8 +341,8 @@ export const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
                             </button>
                           )
                         ) : (
-                          <span style={{ fontSize: 12, color: 'var(--status-success-text)', fontWeight: 600 }}>
-                            Dispatched
+                          <span className="staff-completed-text">
+                            ✓ Dispatched
                           </span>
                         )}
                       </div>
@@ -360,7 +363,7 @@ export const StaffDashboardView: React.FC<StaffDashboardViewProps> = ({
           <div className="staff-section-header">
             <div className="staff-section-title-wrap">
               <div className="staff-section-icon">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                   <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
                   <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
                 </svg>
